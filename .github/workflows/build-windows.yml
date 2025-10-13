@@ -23,23 +23,49 @@ jobs:
         target: 'desktop'
         arch: 'win64_msvc2019_64'
         modules: 'qtwebsockets'
-        cache: true
+        cache: false
 
     - name: Setup MSVC
       uses: ilammy/msvc-dev-cmd@v1
       with:
         arch: x64
 
-    - name: Create build directory
+    - name: Verify Qt installation
       run: |
-        mkdir build-test
-        Copy-Item CMakeLists_Test.txt build-test\CMakeLists.txt
+        Write-Host "Qt6_DIR: $env:Qt6_DIR"
+        Write-Host "Checking Qt installation..."
+        if (Test-Path "$env:Qt6_DIR\bin\qmake.exe") {
+          Write-Host "✓ qmake.exe found"
+        } else {
+          Write-Host "✗ qmake.exe NOT found!"
+        }
+        if (Test-Path "$env:Qt6_DIR\lib\cmake\Qt6") {
+          Write-Host "✓ Qt6 CMake config found"
+          Get-ChildItem "$env:Qt6_DIR\lib\cmake" -Directory | Select-Object Name
+        } else {
+          Write-Host "✗ Qt6 CMake config NOT found!"
+        }
+      shell: powershell
+
+    - name: Prepare build directory
+      run: |
+        # Create a separate source directory for test build
+        New-Item -ItemType Directory -Path build-test-src -Force
+
+        # Copy source files
+        Copy-Item -Path src -Destination build-test-src\ -Recurse
+
+        # Copy test CMakeLists as main CMakeLists
+        Copy-Item CMakeLists_Test.txt build-test-src\CMakeLists.txt
+
+        # Create build directory
+        New-Item -ItemType Directory -Path build-test -Force
       shell: powershell
 
     - name: Configure CMake
       run: |
         cd build-test
-        cmake .. -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH=$env:Qt6_DIR
+        cmake ..\build-test-src -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH="$env:Qt6_DIR"
       shell: powershell
 
     - name: Build
