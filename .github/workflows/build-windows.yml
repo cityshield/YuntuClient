@@ -1,11 +1,8 @@
 name: Build Windows Test
 
 on:
-  push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
-  workflow_dispatch:  # 允许手动触发
+  # 只支持手动触发（避免与 GUI 版本重复构建）
+  workflow_dispatch:
 
 jobs:
   build-windows:
