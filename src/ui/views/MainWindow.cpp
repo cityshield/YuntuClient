@@ -172,8 +172,8 @@ void MainWindow::onCreateTaskClicked()
             Application::instance().logger()->info("MainWindow",
                 QString::fromUtf8("任务创建成功: %1").arg(createdTask->taskName()));
 
-            // 添加到任务管理器
-            TaskManager::instance().createTask(createdTask);
+            // 提交任务到任务管理器
+            TaskManager::instance().submitTask(createdTask);
 
             // 刷新任务列表
             onRefreshClicked();

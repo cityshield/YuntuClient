@@ -15,6 +15,9 @@
 #include "../components/FluentButton.h"
 #include "../components/FluentCard.h"
 
+// 前向声明
+class Task;
+
 /**
  * @brief 主窗口
  *
