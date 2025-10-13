@@ -21,6 +21,7 @@ public:
     void cleanup();
 
     Config* config() const { return m_config.get(); }
+    Logger* logger() const { return m_logger.get(); }
     QString version() const { return "1.0.0"; }
 
 private:

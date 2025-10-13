@@ -14,7 +14,6 @@
 
 AuthManager::AuthManager(QObject *parent)
     : QObject(parent)
-    , m_apiService(new ApiService(this))
     , m_currentUser(nullptr)
     , m_isLoggedIn(false)
     , m_rememberMe(false)
@@ -67,7 +66,7 @@ void AuthManager::login(const QString& username, const QString& password, bool r
     m_rememberMe = remember;
 
     // 调用 API 登录
-    m_apiService->login(
+    ApiService::instance().login(
         username,
         password,
         [this, remember](const QJsonObject& response) {
@@ -113,7 +112,7 @@ void AuthManager::registerUser(const QString& username, const QString& email,
     Application::instance().logger()->info("AuthManager", QString::fromUtf8("尝试注册: %1").arg(username));
 
     // 调用 API 注册
-    m_apiService->registerUser(
+    ApiService::instance().registerUser(
         username,
         email,
         password,
@@ -144,7 +143,7 @@ void AuthManager::logout()
 
     // 通知后端（可选）
     if (!m_accessToken.isEmpty()) {
-        m_apiService->logout(
+        ApiService::instance().logout(
             [this](const QJsonObject& response) {
                 Application::instance().logger()->info("AuthManager", QString::fromUtf8("服务器端登出成功"));
             },
@@ -167,7 +166,7 @@ void AuthManager::refreshToken()
 
     Application::instance().logger()->info("AuthManager", QString::fromUtf8("刷新访问令牌"));
 
-    m_apiService->refreshToken(
+    ApiService::instance().refreshToken(
         m_refreshToken,
         [this](const QJsonObject& response) {
             // 刷新成功，更新 Token

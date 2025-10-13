@@ -104,7 +104,7 @@ void TaskItemWidget::paintEvent(QPaintEvent *event)
     painter.drawPath(path);
 }
 
-void TaskItemWidget::enterEvent(QEvent *event)
+void TaskItemWidget::enterEvent(QEnterEvent *event)
 {
     QWidget::enterEvent(event);
     m_isHovered = true;

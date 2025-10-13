@@ -43,7 +43,7 @@ protected:
     /**
      * @brief 鼠标进入事件
      */
-    void enterEvent(QEvent *event) override;
+    void enterEvent(QEnterEvent *event) override;
 
     /**
      * @brief 鼠标离开事件

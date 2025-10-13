@@ -194,7 +194,6 @@ private:
     void autoRefreshToken();
 
 private:
-    ApiService* m_apiService;
     User* m_currentUser;
 
     QString m_accessToken;

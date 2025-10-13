@@ -48,7 +48,7 @@ void FluentButton::setIcon(const QIcon &icon, const QSize &size)
     setIconSize(size);
 }
 
-void FluentButton::enterEvent(QEvent *event)
+void FluentButton::enterEvent(QEnterEvent *event)
 {
     QPushButton::enterEvent(event);
 

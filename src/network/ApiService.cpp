@@ -28,6 +28,36 @@ void ApiService::sendSmsCode(const QString& phone,
     HttpClient::instance().post("/api/v1/auth/send-code", data, onSuccess, onError);
 }
 
+void ApiService::login(const QString& username,
+                      const QString& password,
+                      SuccessCallback onSuccess,
+                      ErrorCallback onError)
+{
+    QJsonObject data;
+    data["username"] = username;
+    data["password"] = password;
+
+    HttpClient::instance().post("/api/v1/auth/login", data, onSuccess, onError);
+}
+
+void ApiService::registerUser(const QString& username,
+                             const QString& email,
+                             const QString& password,
+                             const QString& phone,
+                             SuccessCallback onSuccess,
+                             ErrorCallback onError)
+{
+    QJsonObject data;
+    data["username"] = username;
+    data["email"] = email;
+    data["password"] = password;
+    if (!phone.isEmpty()) {
+        data["phone"] = phone;
+    }
+
+    HttpClient::instance().post("/api/v1/auth/register", data, onSuccess, onError);
+}
+
 void ApiService::loginWithPhone(const QString& phone,
                                const QString& code,
                                SuccessCallback onSuccess,
@@ -37,7 +67,7 @@ void ApiService::loginWithPhone(const QString& phone,
     data["phone"] = phone;
     data["code"] = code;
 
-    HttpClient::instance().post("/api/v1/auth/login", data, onSuccess, onError);
+    HttpClient::instance().post("/api/v1/auth/login-phone", data, onSuccess, onError);
 }
 
 void ApiService::loginWithWechat(const QString& code,
@@ -55,8 +85,19 @@ void ApiService::getCurrentUser(SuccessCallback onSuccess, ErrorCallback onError
     HttpClient::instance().get("/api/v1/auth/me", {}, onSuccess, onError);
 }
 
-void ApiService::logout()
+void ApiService::refreshToken(const QString& refreshToken,
+                             SuccessCallback onSuccess,
+                             ErrorCallback onError)
 {
+    QJsonObject data;
+    data["refresh_token"] = refreshToken;
+
+    HttpClient::instance().post("/api/v1/auth/refresh", data, onSuccess, onError);
+}
+
+void ApiService::logout(SuccessCallback onSuccess, ErrorCallback onError)
+{
+    HttpClient::instance().post("/api/v1/auth/logout", QJsonObject(), onSuccess, onError);
     HttpClient::instance().clearAccessToken();
     qDebug() << "ApiService: 用户已登出";
 }

@@ -103,7 +103,7 @@ void FluentCard::paintEvent(QPaintEvent *event)
     painter.drawPath(path);
 }
 
-void FluentCard::enterEvent(QEvent *event)
+void FluentCard::enterEvent(QEnterEvent *event)
 {
     QWidget::enterEvent(event);
 

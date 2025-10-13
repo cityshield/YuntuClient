@@ -32,6 +32,24 @@ public:
                     ErrorCallback onError = nullptr);
 
     /**
+     * @brief 用户名密码登录
+     */
+    void login(const QString& username,
+              const QString& password,
+              SuccessCallback onSuccess = nullptr,
+              ErrorCallback onError = nullptr);
+
+    /**
+     * @brief 用户注册
+     */
+    void registerUser(const QString& username,
+                     const QString& email,
+                     const QString& password,
+                     const QString& phone,
+                     SuccessCallback onSuccess = nullptr,
+                     ErrorCallback onError = nullptr);
+
+    /**
      * @brief 手机号验证码登录
      */
     void loginWithPhone(const QString& phone,
@@ -53,9 +71,17 @@ public:
                        ErrorCallback onError = nullptr);
 
     /**
+     * @brief 刷新访问令牌
+     */
+    void refreshToken(const QString& refreshToken,
+                     SuccessCallback onSuccess = nullptr,
+                     ErrorCallback onError = nullptr);
+
+    /**
      * @brief 登出
      */
-    void logout();
+    void logout(SuccessCallback onSuccess = nullptr,
+               ErrorCallback onError = nullptr);
 
     // =============== 用户相关 ===============
 
