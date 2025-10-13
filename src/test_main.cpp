@@ -32,9 +32,15 @@ void printSeparator(const QString& title = QString())
 {
     std::cout << "\n========================================\n";
     if (!title.isEmpty()) {
-        std::cout << "  " << title.toStdString() << "\n";
+        std::cout << "  " << title.toUtf8().constData() << "\n";
         std::cout << "========================================\n";
     }
+}
+
+// 辅助函数：安全输出 QString 到控制台
+void printLine(const QString& text)
+{
+    std::cout << text.toUtf8().constData() << "\n";
 }
 
 /**
@@ -42,7 +48,7 @@ void printSeparator(const QString& title = QString())
  */
 void testMayaDetector()
 {
-    printSeparator("测试 Maya 环境检测");
+    printSeparator(QString::fromUtf8("测试 Maya 环境检测"));
 
     MayaDetector detector;
 
@@ -107,7 +113,7 @@ void testMayaDetector()
  */
 void testConfig()
 {
-    printSeparator("测试配置管理");
+    printSeparator(QString::fromUtf8("测试配置管理"));
 
     Config* config = Application::instance().config();
 
@@ -132,7 +138,7 @@ void testConfig()
  */
 void testLogger()
 {
-    printSeparator("测试日志系统");
+    printSeparator(QString::fromUtf8("测试日志系统"));
 
     Logger logger;
     logger.initialize();
@@ -151,7 +157,7 @@ void testLogger()
  */
 void testHttpClient()
 {
-    printSeparator("测试 HTTP 客户端");
+    printSeparator(QString::fromUtf8("测试 HTTP 客户端"));
 
     Config* config = Application::instance().config();
     HttpClient::instance().setBaseUrl(config->apiBaseUrl());
@@ -183,7 +189,7 @@ void testHttpClient()
  */
 void testWebSocket()
 {
-    printSeparator("测试 WebSocket 客户端");
+    printSeparator(QString::fromUtf8("测试 WebSocket 客户端"));
 
     Config* config = Application::instance().config();
 
@@ -224,16 +230,17 @@ void testWebSocket()
  */
 void showMenu()
 {
-    printSeparator("盛世云图客户端 - 功能测试");
+    printSeparator(QString::fromUtf8("盛世云图客户端 - 功能测试"));
 
-    std::cout << "可用测试项:\n";
-    std::cout << "  1. Maya 环境检测\n";
-    std::cout << "  2. 配置管理\n";
-    std::cout << "  3. 日志系统\n";
-    std::cout << "  4. HTTP 客户端（需要后端）\n";
-    std::cout << "  5. WebSocket 客户端（需要后端）\n";
-    std::cout << "  0. 退出\n";
-    std::cout << "\n选择测试项 (0-5): ";
+    printLine(QString::fromUtf8("可用测试项:"));
+    printLine(QString::fromUtf8("  1. Maya 环境检测"));
+    printLine(QString::fromUtf8("  2. 配置管理"));
+    printLine(QString::fromUtf8("  3. 日志系统"));
+    printLine(QString::fromUtf8("  4. HTTP 客户端（需要后端）"));
+    printLine(QString::fromUtf8("  5. WebSocket 客户端（需要后端）"));
+    printLine(QString::fromUtf8("  0. 退出"));
+    std::cout << QString::fromUtf8("\n选择测试项 (0-5): ").toUtf8().constData();
+    std::cout.flush();
 }
 
 int main(int argc, char *argv[])
@@ -261,17 +268,17 @@ int main(int argc, char *argv[])
     // 初始化应用程序
     Application::instance().initialize();
 
-    printSeparator("盛世云图客户端 - 测试程序");
-    std::cout << "版本: 1.0.0-alpha\n";
-    std::cout << "测试模式: 控制台\n";
-    std::cout << "\n已实现的功能:\n";
-    std::cout << "  ✓ 核心模块 (Application, Config, Logger)\n";
-    std::cout << "  ✓ Maya 环境检测\n";
-    std::cout << "  ✓ 网络层 (HTTP, WebSocket, FileUploader)\n";
-    std::cout << "\n待实现的功能:\n";
-    std::cout << "  ○ 数据模型\n";
-    std::cout << "  ○ UI 界面\n";
-    std::cout << "  ○ 任务管理\n";
+    printSeparator(QString::fromUtf8("盛世云图客户端 - 测试程序"));
+    printLine(QString::fromUtf8("版本: 1.0.0-alpha"));
+    printLine(QString::fromUtf8("测试模式: 控制台"));
+    printLine(QString::fromUtf8("\n已实现的功能:"));
+    printLine(QString::fromUtf8("  ✓ 核心模块 (Application, Config, Logger)"));
+    printLine(QString::fromUtf8("  ✓ Maya 环境检测"));
+    printLine(QString::fromUtf8("  ✓ 网络层 (HTTP, WebSocket, FileUploader)"));
+    printLine(QString::fromUtf8("\n待实现的功能:"));
+    printLine(QString::fromUtf8("  ○ 数据模型"));
+    printLine(QString::fromUtf8("  ○ UI 界面"));
+    printLine(QString::fromUtf8("  ○ 任务管理"));
 
     // 命令行参数模式
     if (argc > 1) {
@@ -294,14 +301,14 @@ int main(int argc, char *argv[])
             testHttpClient();
             testWebSocket();
         } else {
-            std::cout << "\n用法: YuntuClient_Test [选项]\n";
-            std::cout << "选项:\n";
-            std::cout << "  -m, --maya     测试 Maya 检测\n";
-            std::cout << "  -c, --config   测试配置管理\n";
-            std::cout << "  -l, --log      测试日志系统\n";
-            std::cout << "  -h, --http     测试 HTTP 客户端\n";
-            std::cout << "  -w, --ws       测试 WebSocket\n";
-            std::cout << "  -a, --all      运行所有测试\n";
+            printLine(QString::fromUtf8("\n用法: YuntuClient_Test [选项]"));
+            printLine(QString::fromUtf8("选项:"));
+            printLine(QString::fromUtf8("  -m, --maya     测试 Maya 检测"));
+            printLine(QString::fromUtf8("  -c, --config   测试配置管理"));
+            printLine(QString::fromUtf8("  -l, --log      测试日志系统"));
+            printLine(QString::fromUtf8("  -h, --http     测试 HTTP 客户端"));
+            printLine(QString::fromUtf8("  -w, --ws       测试 WebSocket"));
+            printLine(QString::fromUtf8("  -a, --all      运行所有测试"));
             return 0;
         }
 
@@ -311,7 +318,8 @@ int main(int argc, char *argv[])
     }
 
     // 交互模式
-    std::cout << "\n按 Enter 继续进入测试菜单...";
+    std::cout << QString::fromUtf8("\n按 Enter 继续进入测试菜单...").toUtf8().constData();
+    std::cout.flush();
     std::cin.get();
 
     while (true) {
@@ -321,7 +329,7 @@ int main(int argc, char *argv[])
         std::cin >> choice;
 
         if (choice == 0) {
-            qDebug() << "\n退出测试程序";
+            printLine(QString::fromUtf8("\n退出测试程序"));
             break;
         }
 
@@ -348,10 +356,11 @@ int main(int argc, char *argv[])
                 QCoreApplication::processEvents();
                 break;
             default:
-                std::cout << "无效选择，请重新输入\n";
+                printLine(QString::fromUtf8("无效选择，请重新输入"));
         }
 
-        std::cout << "\n按 Enter 继续...";
+        std::cout << QString::fromUtf8("\n按 Enter 继续...").toUtf8().constData();
+        std::cout.flush();
         std::cin.ignore();
         std::cin.get();
     }

@@ -41,31 +41,29 @@ set(SOURCES
     src/models/Task.cpp
     src/models/RenderConfig.cpp
 
+    # Managers
+    src/managers/AuthManager.cpp
+    src/managers/TaskManager.cpp
+    src/managers/UserManager.cpp
+
     # Services
-    src/services/AuthService.cpp
-    src/services/TaskService.cpp
-    src/services/FileService.cpp
     src/services/MayaDetector.cpp
-    src/services/UpdateService.cpp
 
-    # Database
-    src/database/Database.cpp
+    # UI - Theme
+    src/ui/ThemeManager.cpp
 
-    # UI
-    src/ui/MainWindow.cpp
-    src/ui/LoginDialog.cpp
-    src/ui/TaskListWidget.cpp
-    src/ui/TaskDetailWidget.cpp
-    src/ui/AccountWidget.cpp
-    src/ui/SettingsDialog.cpp
-    src/ui/widgets/ProgressBar.cpp
-    src/ui/widgets/LogViewer.cpp
+    # UI - Components
+    src/ui/components/FluentButton.cpp
+    src/ui/components/FluentLineEdit.cpp
+    src/ui/components/FluentCard.cpp
+    src/ui/components/FluentDialog.cpp
+    src/ui/components/TaskItemWidget.cpp
 
-    # Utils
-    src/utils/FileUtil.cpp
-    src/utils/ProcessUtil.cpp
-    src/utils/SystemUtil.cpp
-    src/utils/Cryptor.cpp
+    # UI - Views
+    src/ui/views/LoginWindow.cpp
+    src/ui/views/MainWindow.cpp
+    src/ui/views/TaskDetailDialog.cpp
+    src/ui/views/CreateTaskDialog.cpp
 )
 
 # 头文件
@@ -86,51 +84,41 @@ set(HEADERS
     src/models/Task.h
     src/models/RenderConfig.h
 
+    # Managers
+    src/managers/AuthManager.h
+    src/managers/TaskManager.h
+    src/managers/UserManager.h
+
     # Services
-    src/services/AuthService.h
-    src/services/TaskService.h
-    src/services/FileService.h
     src/services/MayaDetector.h
-    src/services/UpdateService.h
 
-    # Database
-    src/database/Database.h
+    # UI - Theme
+    src/ui/ThemeManager.h
 
-    # UI
-    src/ui/MainWindow.h
-    src/ui/LoginDialog.h
-    src/ui/TaskListWidget.h
-    src/ui/TaskDetailWidget.h
-    src/ui/AccountWidget.h
-    src/ui/SettingsDialog.h
-    src/ui/widgets/ProgressBar.h
-    src/ui/widgets/LogViewer.h
+    # UI - Components
+    src/ui/components/FluentButton.h
+    src/ui/components/FluentLineEdit.h
+    src/ui/components/FluentCard.h
+    src/ui/components/FluentDialog.h
+    src/ui/components/TaskItemWidget.h
 
-    # Utils
-    src/utils/FileUtil.h
-    src/utils/ProcessUtil.h
-    src/utils/SystemUtil.h
-    src/utils/Cryptor.h
+    # UI - Views
+    src/ui/views/LoginWindow.h
+    src/ui/views/MainWindow.h
+    src/ui/views/TaskDetailDialog.h
+    src/ui/views/CreateTaskDialog.h
 )
 
-# UI 文件
-set(UI_FILES
-    src/ui/MainWindow.ui
-    src/ui/LoginDialog.ui
-    src/ui/SettingsDialog.ui
-)
-
-# 资源文件
-set(RESOURCES
-    resources/resources.qrc
-)
+# 资源文件（暂时没有）
+# set(RESOURCES
+#     resources/resources.qrc
+# )
 
 # 创建可执行文件
 add_executable(${PROJECT_NAME}
     ${SOURCES}
     ${HEADERS}
-    ${UI_FILES}
-    ${RESOURCES}
+    # ${RESOURCES}
 )
 
 # 链接 Qt 库

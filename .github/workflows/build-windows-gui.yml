@@ -1,0 +1,104 @@
+name: Build Windows GUI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+  build-windows-gui:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Qt
+      uses: jurplel/install-qt-action@v3
+      with:
+        version: '6.5.3'
+        host: 'windows'
+        target: 'desktop'
+        arch: 'win64_msvc2019_64'
+        modules: 'qtwebsockets'
+        cache: true
+
+    - name: Setup MSVC
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x64
+
+    - name: Verify Qt installation
+      run: |
+        Write-Host "Qt6_DIR: $env:Qt6_DIR"
+        Write-Host "Checking Qt installation..."
+        if (Test-Path "$env:Qt6_DIR\bin\qmake.exe") {
+          Write-Host "✓ qmake.exe found"
+        } else {
+          Write-Host "✗ qmake.exe NOT found!"
+        }
+        if (Test-Path "$env:Qt6_DIR\lib\cmake\Qt6") {
+          Write-Host "✓ Qt6 CMake config found"
+        } else {
+          Write-Host "✗ Qt6 CMake config NOT found!"
+        }
+      shell: powershell
+
+    - name: Create build directory
+      run: |
+        New-Item -ItemType Directory -Path build -Force
+      shell: powershell
+
+    - name: Configure CMake
+      run: |
+        cd build
+        cmake .. -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH="$env:Qt6_DIR"
+      shell: powershell
+
+    - name: Build
+      run: |
+        cd build
+        cmake --build . --config Release
+      shell: powershell
+
+    - name: Copy Qt DLLs
+      run: |
+        cd build\Release
+        # Core Qt DLLs
+        Copy-Item "$env:Qt6_DIR\bin\Qt6Core.dll" .
+        Copy-Item "$env:Qt6_DIR\bin\Qt6Gui.dll" .
+        Copy-Item "$env:Qt6_DIR\bin\Qt6Widgets.dll" .
+        Copy-Item "$env:Qt6_DIR\bin\Qt6Network.dll" .
+        Copy-Item "$env:Qt6_DIR\bin\Qt6WebSockets.dll" .
+        Copy-Item "$env:Qt6_DIR\bin\Qt6Sql.dll" .
+
+        # Create platforms directory and copy platform plugin
+        New-Item -ItemType Directory -Path platforms -Force
+        Copy-Item "$env:Qt6_DIR\plugins\platforms\qwindows.dll" platforms\
+      shell: powershell
+
+    - name: Package artifacts
+      run: |
+        mkdir YuntuClient_Package
+        Copy-Item build\Release\YuntuClient.exe YuntuClient_Package\
+        Copy-Item build\Release\*.dll YuntuClient_Package\
+        Copy-Item -Recurse build\Release\platforms YuntuClient_Package\
+        Compress-Archive -Path YuntuClient_Package\* -DestinationPath YuntuClient_Windows_x64.zip
+      shell: powershell
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: YuntuClient-Windows-x64
+        path: YuntuClient_Windows_x64.zip
+        retention-days: 30
+
+    - name: Create Release (on tag)
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: YuntuClient_Windows_x64.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

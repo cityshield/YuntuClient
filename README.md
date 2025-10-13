@@ -4,20 +4,39 @@
 
 ## 功能特性
 
-### 第一期功能（当前版本）
-- ✅ 用户登录（手机验证码、微信扫码、30天自动登录）
-- ✅ Maya 环境自动检测
+### 已实现功能（v1.0.0）
+
+#### 核心功能
+- ✅ **Maya 环境检测**
   - 自动扫描系统中安装的 Maya 版本
-  - 检测渲染器（Arnold、V-Ray、Redshift）
-  - 识别已安装的插件
-  - 场景文件依赖检测
-- ✅ 文件上传（分片上传、断点续传）
-- ✅ 任务管理
-  - 任务列表查看
-  - 实时进度追踪
-  - 任务控制（暂停/继续/取消）
-- ✅ 实时通信（WebSocket）
-- ✅ 本地缓存和配置管理
+  - 支持从 Windows 注册表扫描
+  - 解析 Maya 场景文件（.ma/.mb）
+  - 识别渲染器类型（Arnold、V-Ray、Redshift 等）
+  - 检测缺失资源
+
+#### 网络层
+- ✅ **HTTP 客户端** - 基于 QNetworkAccessManager，自动 JWT Token 管理
+- ✅ **WebSocket 客户端** - 实时通信，自动重连，心跳检测
+- ✅ **文件上传器** - 分块上传（5MB/块），并行上传，断点续传，MD5 校验
+
+#### 数据模型
+- ✅ **用户模型** (User) - 用户信息、会员等级、余额管理
+- ✅ **任务模型** (Task) - 8种任务状态，完整的渲染参数，时间跟踪
+- ✅ **渲染配置模型** (RenderConfig) - 5种质量预设，多渲染器支持
+
+#### 业务管理器
+- ✅ **认证管理器** (AuthManager) - 登录/注册/登出，自动 Token 刷新
+- ✅ **任务管理器** (TaskManager) - 任务 CRUD，本地缓存，生命周期管理
+- ✅ **用户管理器** (UserManager) - 用户信息、余额、会员管理
+
+#### UI 系统（Fluent Design）
+- ✅ **ThemeManager** - 亮色/暗色主题，完整 QSS 样式表
+- ✅ **UI 组件** - FluentButton, FluentLineEdit, FluentCard, FluentDialog, TaskItemWidget
+- ✅ **主要视图**
+  - LoginWindow - 登录窗口（无边框设计，主题切换）
+  - MainWindow - 主窗口（自定义标题栏，侧边导航）
+  - TaskDetailDialog - 任务详情对话框（标签页，实时进度）
+  - CreateTaskDialog - 新建任务对话框（场景检测，参数配置）
 
 ### 后续版本规划
 - ⏳ 多软件支持（3ds Max、Blender、C4D、UE）
@@ -47,115 +66,148 @@
 - Qt 6.5+
 - CMake 3.16+
 
-## 构建步骤
+## 构建说明
 
-### 1. 安装依赖
+### 前置要求
 
-**Windows:**
+- **Windows 10/11** (64-bit)
+- **CMake 3.16+**
+- **Qt 6.5.3** 或更高版本
+- **Visual Studio 2019/2022** (MSVC 编译器)
+
+### 方法1：GitHub Actions 自动构建（推荐）
+
+推送代码到 GitHub 后，Actions 会自动触发构建：
+
+1. 推送代码：
 ```bash
-# 安装 Qt 6 (使用在线安装器或离线包)
-# 下载地址: https://www.qt.io/download
-
-# 安装 CMake
-# 下载地址: https://cmake.org/download/
+git add .
+git commit -m "Update YuntuClient"
+git push origin main
 ```
 
-### 2. 配置环境变量
+2. 查看构建进度：
+   - 访问仓库的 Actions 页面
+   - 等待构建完成（约 8-10 分钟）
 
-```bash
-# Windows
-set Qt6_DIR=C:/Qt/6.5.3/msvc2019_64
-set PATH=%Qt6_DIR%/bin;%PATH%
+3. 下载构建产物：
+   - 点击成功的工作流
+   - 在 Artifacts 部分下载 `YuntuClient-Windows-x64`
+   - 解压即可使用
 
-# macOS/Linux
-export Qt6_DIR=/path/to/Qt/6.5.3/clang_64
-export PATH=$Qt6_DIR/bin:$PATH
-```
+### 方法2：本地构建
 
-### 3. 编译项目
+#### 1. 安装依赖
 
-```bash
+下载并安装 Qt 6.5.3：
+- 访问 https://www.qt.io/download-qt-installer
+- 选择 MSVC 2019 64-bit 组件
+- 确保安装 Qt WebSockets 模块
+
+#### 2. 配置项目
+
+```powershell
 # 创建构建目录
 mkdir build
 cd build
 
-# 配置 CMake
-cmake ..
-
-# 编译
-cmake --build . --config Release
-
-# 运行
-./YuntuClient  # Linux/macOS
-Release/YuntuClient.exe  # Windows
+# 配置 CMake（替换 Qt 路径）
+cmake .. -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH="C:\Qt\6.5.3\msvc2019_64"
 ```
 
-### 使用 Qt Creator
+#### 3. 编译
 
-1. 打开 Qt Creator
-2. 文件 -> 打开文件或项目 -> 选择 `CMakeLists.txt`
-3. 配置 Kit (选择合适的编译器和 Qt 版本)
-4. 点击"构建"按钮
-5. 点击"运行"按钮
+```powershell
+# 构建 Release 版本
+cmake --build . --config Release
+
+# 可执行文件位于
+# build\Release\YuntuClient.exe
+```
+
+#### 4. 部署
+
+手动复制 Qt DLLs 到 Release 目录：
+```powershell
+cd Release
+
+# 复制核心 DLL
+copy C:\Qt\6.5.3\msvc2019_64\bin\Qt6Core.dll .
+copy C:\Qt\6.5.3\msvc2019_64\bin\Qt6Gui.dll .
+copy C:\Qt\6.5.3\msvc2019_64\bin\Qt6Widgets.dll .
+copy C:\Qt\6.5.3\msvc2019_64\bin\Qt6Network.dll .
+copy C:\Qt\6.5.3\msvc2019_64\bin\Qt6WebSockets.dll .
+copy C:\Qt\6.5.3\msvc2019_64\bin\Qt6Sql.dll .
+
+# 复制平台插件
+mkdir platforms
+copy C:\Qt\6.5.3\msvc2019_64\plugins\platforms\qwindows.dll platforms\
+```
+
+## 设计风格
+
+采用 **Microsoft Fluent Design** 设计语言：
+- 圆角矩形（4-12px 圆角）
+- 柔和阴影效果
+- 悬停/焦点动画（200ms 过渡）
+- 亮色/暗色主题切换
+- 现代配色方案
 
 ## 项目结构
 
 ```
 YuntuClient/
-├── CMakeLists.txt              # CMake 配置文件
+├── .github/
+│   └── workflows/
+│       ├── build-windows.yml      # 测试程序构建
+│       └── build-windows-gui.yml  # GUI 程序构建
+├── CMakeLists.txt              # GUI 构建配置
+├── CMakeLists_Test.txt         # 测试构建配置
 ├── README.md                   # 项目说明
 │
-├── src/
-│   ├── main.cpp                # 程序入口
-│   │
-│   ├── core/                   # 核心模块
-│   │   ├── Application.h/cpp   # 应用程序单例
-│   │   ├── Config.h/cpp        # 配置管理
-│   │   └── Logger.h/cpp        # 日志系统
-│   │
-│   ├── network/                # 网络层
-│   │   ├── HttpClient.h/cpp    # HTTP 客户端
-│   │   ├── WebSocketClient.h/cpp  # WebSocket 客户端
-│   │   ├── ApiService.h/cpp    # API 服务封装
-│   │   └── FileUploader.h/cpp  # 文件上传服务
-│   │
-│   ├── models/                 # 数据模型
-│   │   ├── User.h/cpp          # 用户模型
-│   │   ├── Task.h/cpp          # 任务模型
-│   │   └── RenderConfig.h/cpp  # 渲染配置模型
-│   │
-│   ├── services/               # 业务服务
-│   │   ├── AuthService.h/cpp   # 认证服务
-│   │   ├── TaskService.h/cpp   # 任务服务
-│   │   ├── FileService.h/cpp   # 文件服务
-│   │   ├── MayaDetector.h/cpp  # Maya 环境检测 ⭐重点
-│   │   └── UpdateService.h/cpp # 自动更新服务
-│   │
-│   ├── database/               # 数据库
-│   │   └── Database.h/cpp      # SQLite 封装
-│   │
-│   ├── ui/                     # UI 界面
-│   │   ├── MainWindow.h/cpp/ui # 主窗口
-│   │   ├── LoginDialog.h/cpp/ui # 登录对话框
-│   │   ├── TaskListWidget.h/cpp # 任务列表
-│   │   ├── TaskDetailWidget.h/cpp # 任务详情
-│   │   ├── AccountWidget.h/cpp # 账号管理
-│   │   ├── SettingsDialog.h/cpp # 设置对话框
-│   │   └── widgets/            # 自定义控件
-│   │       ├── ProgressBar.h/cpp # 进度条
-│   │       └── LogViewer.h/cpp # 日志查看器
-│   │
-│   └── utils/                  # 工具类
-│       ├── FileUtil.h/cpp      # 文件工具
-│       ├── ProcessUtil.h/cpp   # 进程工具
-│       ├── SystemUtil.h/cpp    # 系统工具
-│       └── Cryptor.h/cpp       # 加密工具
-│
-└── resources/                  # 资源文件
-    ├── icons/                  # 图标
-    ├── qss/                    # 样式表
-    ├── translations/           # 多语言
-    └── resources.qrc           # Qt 资源文件
+└── src/
+    ├── main.cpp                # GUI 主程序入口
+    ├── test_main.cpp           # 测试程序入口
+    │
+    ├── core/                   # 核心模块
+    │   ├── Application.h/cpp   # 应用程序单例
+    │   ├── Config.h/cpp        # 配置管理
+    │   └── Logger.h/cpp        # 日志系统
+    │
+    ├── network/                # 网络层
+    │   ├── HttpClient.h/cpp    # HTTP 客户端
+    │   ├── WebSocketClient.h/cpp  # WebSocket 客户端
+    │   ├── ApiService.h/cpp    # API 服务封装
+    │   └── FileUploader.h/cpp  # 文件上传服务
+    │
+    ├── models/                 # 数据模型
+    │   ├── User.h/cpp          # 用户模型
+    │   ├── Task.h/cpp          # 任务模型
+    │   └── RenderConfig.h/cpp  # 渲染配置模型
+    │
+    ├── managers/               # 业务管理器
+    │   ├── AuthManager.h/cpp   # 认证管理 ⭐
+    │   ├── TaskManager.h/cpp   # 任务管理 ⭐
+    │   └── UserManager.h/cpp   # 用户管理 ⭐
+    │
+    ├── services/               # 业务服务
+    │   └── MayaDetector.h/cpp  # Maya 环境检测 ⭐重点
+    │
+    └── ui/                     # UI 界面
+        ├── ThemeManager.h/cpp  # 主题管理 ⭐
+        │
+        ├── components/         # Fluent Design 组件
+        │   ├── FluentButton.h/cpp       # Fluent 按钮
+        │   ├── FluentLineEdit.h/cpp     # Fluent 输入框
+        │   ├── FluentCard.h/cpp         # Fluent 卡片
+        │   ├── FluentDialog.h/cpp       # Fluent 对话框
+        │   └── TaskItemWidget.h/cpp     # 任务列表项
+        │
+        └── views/              # 主要视图
+            ├── LoginWindow.h/cpp        # 登录窗口 ⭐
+            ├── MainWindow.h/cpp         # 主窗口 ⭐
+            ├── TaskDetailDialog.h/cpp   # 任务详情对话框 ⭐
+            └── CreateTaskDialog.h/cpp   # 新建任务对话框 ⭐
 ```
 
 ## Maya 环境检测功能说明
