@@ -3,6 +3,7 @@
 #include <QDir>
 #include <QStandardPaths>
 #include <QDebug>
+#include <QStringConverter>
 
 Logger::Logger(QObject *parent)
     : QObject(parent)
@@ -35,7 +36,7 @@ void Logger::initialize()
     m_logFile = new QFile(logFilePath);
     if (m_logFile->open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
         m_stream = new QTextStream(m_logFile);
-        m_stream->setCodec("UTF-8");
+        m_stream->setEncoding(QStringConverter::Utf8);
     }
 }
 

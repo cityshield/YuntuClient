@@ -5,6 +5,7 @@
 #include <QTextStream>
 #include <QRegularExpression>
 #include <QDebug>
+#include <QStringConverter>
 
 #ifdef Q_OS_WIN
 #include <Windows.h>
@@ -389,8 +390,8 @@ QString MayaDetector::extractVersionFromPath(const QString &path)
 {
     // 从路径中提取版本号
     // 例如: "C:/Program Files/Autodesk/Maya2024" -> "2024"
-    QRegularExpression re("Maya\\s?(\\d{4})");
-    QRegularExpressionMatch match = re.match(path, 0, QRegularExpression::CaseInsensitiveMatch);
+    QRegularExpression re("Maya\\s?(\\d{4})", QRegularExpression::CaseInsensitiveOption);
+    QRegularExpressionMatch match = re.match(path);
     if (match.hasMatch()) {
         return match.captured(1);
     }
@@ -423,7 +424,7 @@ QString MayaDetector::readMayaAsciiScene(const QString &sceneFilePath)
     }
 
     QTextStream in(&file);
-    in.setCodec("UTF-8");
+    in.setEncoding(QStringConverter::Utf8);
 
     // 只读取前10000行（场景文件可能很大）
     QString content;
