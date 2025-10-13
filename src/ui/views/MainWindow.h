@@ -98,6 +98,11 @@ private slots:
      */
     void onLogoutClicked();
 
+    /**
+     * @brief 查看任务详情
+     */
+    void onViewTaskDetails(Task *task);
+
 private:
     /**
      * @brief 初始化 UI
@@ -165,7 +170,6 @@ private:
     QWidget *m_aboutPage;
 
     // 任务页面组件
-    QListWidget *m_taskListWidget;
     FluentButton *m_createTaskButton;
     FluentButton *m_refreshButton;
 

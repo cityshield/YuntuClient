@@ -4,10 +4,14 @@
  */
 
 #include "MainWindow.h"
+#include "CreateTaskDialog.h"
+#include "TaskDetailDialog.h"
 #include "../ThemeManager.h"
+#include "../components/TaskItemWidget.h"
 #include "../../managers/AuthManager.h"
 #include "../../managers/TaskManager.h"
 #include "../../managers/UserManager.h"
+#include "../../models/Task.h"
 #include "../../core/Logger.h"
 #include "../../core/Application.h"
 #include <QPainter>
@@ -15,6 +19,7 @@
 #include <QMouseEvent>
 #include <QScreen>
 #include <QApplication>
+#include <QScrollArea>
 
 MainWindow::MainWindow(QWidget *parent)
     : QWidget(parent)
@@ -34,7 +39,6 @@ MainWindow::MainWindow(QWidget *parent)
     , m_taskPage(nullptr)
     , m_settingsPage(nullptr)
     , m_aboutPage(nullptr)
-    , m_taskListWidget(nullptr)
     , m_createTaskButton(nullptr)
     , m_refreshButton(nullptr)
     , m_mainLayout(nullptr)
@@ -159,8 +163,22 @@ void MainWindow::onThemeToggleClicked()
 
 void MainWindow::onCreateTaskClicked()
 {
-    // TODO: 打开创建任务对话框
-    Application::instance().logger()->info("MainWindow", QString::fromUtf8("点击创建任务"));
+    Application::instance().logger()->info("MainWindow", QString::fromUtf8("打开创建任务对话框"));
+
+    CreateTaskDialog dialog(this);
+    if (dialog.exec() == QDialog::Accepted) {
+        Task* createdTask = dialog.getCreatedTask();
+        if (createdTask) {
+            Application::instance().logger()->info("MainWindow",
+                QString::fromUtf8("任务创建成功: %1").arg(createdTask->taskName()));
+
+            // 添加到任务管理器
+            TaskManager::instance().createTask(createdTask);
+
+            // 刷新任务列表
+            onRefreshClicked();
+        }
+    }
 }
 
 void MainWindow::onRefreshClicked()
@@ -174,6 +192,19 @@ void MainWindow::onLogoutClicked()
     AuthManager::instance().logout();
     close();
     // TODO: 打开登录窗口
+}
+
+void MainWindow::onViewTaskDetails(Task *task)
+{
+    if (!task) {
+        return;
+    }
+
+    Application::instance().logger()->info("MainWindow",
+        QString::fromUtf8("打开任务详情: %1").arg(task->taskName()));
+
+    TaskDetailDialog dialog(task, this);
+    dialog.exec();
 }
 
 void MainWindow::initUI()
@@ -325,17 +356,93 @@ QWidget* MainWindow::createTaskPage()
     toolbarLayout->addWidget(m_refreshButton);
     toolbarLayout->addWidget(m_createTaskButton);
 
-    // 任务列表
-    m_taskListWidget = new QListWidget(page);
-    m_taskListWidget->setFrameShape(QFrame::NoFrame);
+    // 任务列表容器（使用滚动区域）
+    QScrollArea *scrollArea = new QScrollArea(page);
+    scrollArea->setFrameShape(QFrame::NoFrame);
+    scrollArea->setWidgetResizable(true);
+    scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
-    // 添加示例任务
-    m_taskListWidget->addItem(QString::fromUtf8("示例任务 1 - 渲染中 (50%)"));
-    m_taskListWidget->addItem(QString::fromUtf8("示例任务 2 - 队列中"));
-    m_taskListWidget->addItem(QString::fromUtf8("示例任务 3 - 已完成"));
+    QWidget *scrollContent = new QWidget(scrollArea);
+    QVBoxLayout *taskListLayout = new QVBoxLayout(scrollContent);
+    taskListLayout->setContentsMargins(0, 0, 0, 0);
+    taskListLayout->setSpacing(12);
+
+    // 创建演示任务 1 - 渲染中
+    Task *task1 = new Task(this);
+    task1->setTaskId("demo_task_001");
+    task1->setTaskName(QString::fromUtf8("渲染场景 - 办公室内景"));
+    task1->setSceneFile("C:/Projects/Maya/office_scene.ma");
+    task1->setStatus(TaskStatus::Rendering);
+    task1->setProgress(65);
+    task1->setStartFrame(1);
+    task1->setEndFrame(240);
+    task1->setFrameStep(1);
+    task1->setWidth(1920);
+    task1->setHeight(1080);
+    task1->setRenderer("Arnold");
+    task1->setOutputFormat("exr");
+    task1->setCreatedAt(QDateTime::currentDateTime().addSecs(-3600));
+    task1->setStartedAt(QDateTime::currentDateTime().addSecs(-1800));
+    task1->setEstimatedCost(45.50);
+
+    TaskItemWidget *taskItem1 = new TaskItemWidget(task1, scrollContent);
+    connect(taskItem1, &TaskItemWidget::viewDetailsClicked,
+            this, &MainWindow::onViewTaskDetails);
+    taskListLayout->addWidget(taskItem1);
+
+    // 创建演示任务 2 - 队列中
+    Task *task2 = new Task(this);
+    task2->setTaskId("demo_task_002");
+    task2->setTaskName(QString::fromUtf8("产品展示动画"));
+    task2->setSceneFile("C:/Projects/Maya/product_showcase.ma");
+    task2->setStatus(TaskStatus::Queued);
+    task2->setProgress(0);
+    task2->setStartFrame(1);
+    task2->setEndFrame(180);
+    task2->setFrameStep(1);
+    task2->setWidth(1920);
+    task2->setHeight(1080);
+    task2->setRenderer("V-Ray");
+    task2->setOutputFormat("png");
+    task2->setCreatedAt(QDateTime::currentDateTime().addSecs(-600));
+    task2->setEstimatedCost(32.00);
+
+    TaskItemWidget *taskItem2 = new TaskItemWidget(task2, scrollContent);
+    connect(taskItem2, &TaskItemWidget::viewDetailsClicked,
+            this, &MainWindow::onViewTaskDetails);
+    taskListLayout->addWidget(taskItem2);
+
+    // 创建演示任务 3 - 已完成
+    Task *task3 = new Task(this);
+    task3->setTaskId("demo_task_003");
+    task3->setTaskName(QString::fromUtf8("建筑外观渲染"));
+    task3->setSceneFile("C:/Projects/Maya/building_exterior.ma");
+    task3->setStatus(TaskStatus::Completed);
+    task3->setProgress(100);
+    task3->setStartFrame(1);
+    task3->setEndFrame(120);
+    task3->setFrameStep(1);
+    task3->setWidth(3840);
+    task3->setHeight(2160);
+    task3->setRenderer("Arnold");
+    task3->setOutputFormat("exr");
+    task3->setCreatedAt(QDateTime::currentDateTime().addSecs(-7200));
+    task3->setStartedAt(QDateTime::currentDateTime().addSecs(-6000));
+    task3->setCompletedAt(QDateTime::currentDateTime().addSecs(-300));
+    task3->setEstimatedCost(68.00);
+    task3->setActualCost(65.50);
+
+    TaskItemWidget *taskItem3 = new TaskItemWidget(task3, scrollContent);
+    connect(taskItem3, &TaskItemWidget::viewDetailsClicked,
+            this, &MainWindow::onViewTaskDetails);
+    taskListLayout->addWidget(taskItem3);
+
+    taskListLayout->addStretch();
+
+    scrollArea->setWidget(scrollContent);
 
     layout->addLayout(toolbarLayout);
-    layout->addWidget(m_taskListWidget);
+    layout->addWidget(scrollArea);
 
     return page;
 }
