@@ -69,6 +69,11 @@ private slots:
      */
     void onThemeToggleClicked();
 
+    /**
+     * @brief 演示模式按钮点击
+     */
+    void onDemoModeClicked();
+
 private:
     /**
      * @brief 初始化 UI
@@ -107,6 +112,7 @@ private:
     // 按钮
     FluentButton *m_loginButton;
     FluentButton *m_registerButton;
+    FluentButton *m_demoButton;
     FluentButton *m_themeToggleButton;
 
     // 错误提示

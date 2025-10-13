@@ -25,6 +25,7 @@ LoginWindow::LoginWindow(QWidget *parent)
     , m_forgotPasswordLabel(nullptr)
     , m_loginButton(nullptr)
     , m_registerButton(nullptr)
+    , m_demoButton(nullptr)
     , m_themeToggleButton(nullptr)
     , m_errorLabel(nullptr)
     , m_mainLayout(nullptr)
@@ -99,6 +100,23 @@ void LoginWindow::onForgotPasswordClicked()
     // TODO: 打开忘记密码窗口
     QMessageBox::information(this, QString::fromUtf8("忘记密码"),
         QString::fromUtf8("密码找回功能即将推出"));
+}
+
+void LoginWindow::onDemoModeClicked()
+{
+    Application::instance().logger()->info("LoginWindow", QString::fromUtf8("进入演示模式"));
+
+    // 创建一个演示用户
+    User* demoUser = new User(this);
+    demoUser->setUserId("demo_user_001");
+    demoUser->setUsername(QString::fromUtf8("演示用户"));
+    demoUser->setEmail("demo@yuntu.com");
+    demoUser->setBalance(1000.0);
+    demoUser->setMemberLevel(MemberLevel::Pro);
+    demoUser->setIsLoggedIn(true);
+
+    // 触发登录成功信号
+    emit AuthManager::instance().loginSuccess(demoUser);
 }
 
 void LoginWindow::onLoginSuccess()
@@ -203,6 +221,10 @@ void LoginWindow::initUI()
     // 注册按钮
     m_registerButton = new FluentButton(QString::fromUtf8("创建新账号"), m_loginPanel);
 
+    // 演示模式按钮
+    m_demoButton = new FluentButton(QString::fromUtf8("演示模式（无需登录）"), m_loginPanel);
+    m_demoButton->setStyleSheet("QPushButton { color: #0078D4; background-color: transparent; border: 1px solid #0078D4; }");
+
     // 添加到面板布局
     panelLayout->addWidget(m_logoLabel);
     panelLayout->addWidget(m_titleLabel);
@@ -215,6 +237,8 @@ void LoginWindow::initUI()
     panelLayout->addSpacing(10);
     panelLayout->addWidget(m_loginButton);
     panelLayout->addWidget(m_registerButton);
+    panelLayout->addSpacing(10);
+    panelLayout->addWidget(m_demoButton);
     panelLayout->addStretch();
 
     // 主题切换按钮（右上角）
@@ -246,6 +270,10 @@ void LoginWindow::connectSignals()
     // 注册按钮
     connect(m_registerButton, &FluentButton::clicked,
             this, &LoginWindow::onRegisterClicked);
+
+    // 演示模式按钮
+    connect(m_demoButton, &FluentButton::clicked,
+            this, &LoginWindow::onDemoModeClicked);
 
     // 忘记密码
     connect(m_forgotPasswordLabel, &QLabel::linkActivated,
