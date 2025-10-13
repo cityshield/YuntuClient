@@ -166,7 +166,9 @@ void HttpClient::downloadFile(const QString& url,
                              std::function<void()> onSuccess,
                              ErrorCallback onError)
 {
-    QNetworkRequest request(QUrl(url));
+    QUrl requestUrl(url);
+    QNetworkRequest request;
+    request.setUrl(requestUrl);
 
     emit requestStarted(url);
 
