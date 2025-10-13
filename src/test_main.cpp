@@ -15,6 +15,10 @@
 #include <QDebug>
 #include <iostream>
 
+#ifdef Q_OS_WIN
+#include <windows.h>
+#endif
+
 #include "core/Application.h"
 #include "core/Config.h"
 #include "core/Logger.h"
@@ -234,6 +238,18 @@ void showMenu()
 
 int main(int argc, char *argv[])
 {
+#ifdef Q_OS_WIN
+    // 设置 Windows 控制台为 UTF-8 编码
+    SetConsoleOutputCP(CP_UTF8);
+    SetConsoleCP(CP_UTF8);
+    // 启用 ANSI 转义序列支持（用于彩色输出）
+    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+    DWORD dwMode = 0;
+    GetConsoleMode(hOut, &dwMode);
+    dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+    SetConsoleMode(hOut, dwMode);
+#endif
+
     QCoreApplication app(argc, argv);
 
     // 设置应用信息
