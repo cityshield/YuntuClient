@@ -7,6 +7,7 @@
 #include "../core/Config.h"
 #include "../core/Logger.h"
 #include "../core/Application.h"
+#include "../network/HttpClient.h"
 #include <QSettings>
 #include <QTimer>
 #include <QJsonObject>

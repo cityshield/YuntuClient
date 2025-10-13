@@ -6,6 +6,7 @@
 #include "UserManager.h"
 #include "../core/Logger.h"
 #include "../core/Application.h"
+#include "../network/HttpClient.h"
 #include <QJsonObject>
 #include <QJsonArray>
 
