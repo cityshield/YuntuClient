@@ -249,7 +249,6 @@ private:
     void sortTasks();
 
 private:
-    ApiService* m_apiService;
     WebSocketClient* m_wsClient;
 
     QList<Task*> m_tasks;

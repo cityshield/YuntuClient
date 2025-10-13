@@ -124,7 +124,7 @@ private:
     /**
      * @brief 加载样式表文件
      */
-    QString loadStyleSheet(const QString& fileName);
+    QString loadStyleSheet(const QString& fileName) const;
 
     /**
      * @brief 获取内嵌样式表
@@ -139,7 +139,7 @@ private:
     /**
      * @brief 替换样式表中的颜色变量
      */
-    QString processStyleSheet(const QString& qss);
+    QString processStyleSheet(const QString& qss) const;
 
 private:
     ThemeType m_currentTheme;

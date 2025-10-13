@@ -294,7 +294,7 @@ void AuthManager::setTokens(const QString& accessToken, const QString& refreshTo
     m_refreshToken = refreshToken;
 
     // 更新 HttpClient 的 Token
-    HttpClient::instance().setAuthToken(accessToken);
+    HttpClient::instance().setAccessToken(accessToken);
 }
 
 void AuthManager::setCurrentUser(User* user)

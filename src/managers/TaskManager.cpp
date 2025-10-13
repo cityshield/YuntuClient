@@ -15,7 +15,6 @@
 
 TaskManager::TaskManager(QObject *parent)
     : QObject(parent)
-    , m_apiService(new ApiService(this))
     , m_wsClient(nullptr)
     , m_isInitialized(false)
 {
@@ -107,7 +106,10 @@ void TaskManager::refreshTaskList()
 {
     Application::instance().logger()->info("TaskManager", QString::fromUtf8("刷新任务列表"));
 
-    m_apiService->getTasks(
+    ApiService::instance().getTasks(
+        QString(),  // status filter
+        0,          // skip
+        100,        // limit
         [this](const QJsonObject& response) {
             // 清空当前任务列表
             qDeleteAll(m_tasks);
@@ -172,7 +174,7 @@ void TaskManager::submitTask(Task* task)
     // 将任务转换为 JSON
     QJsonObject taskJson = task->toJson();
 
-    m_apiService->createTask(
+    ApiService::instance().createTask(
         taskJson,
         [this, task](const QJsonObject& response) {
             // 更新任务 ID
@@ -199,7 +201,7 @@ void TaskManager::startTask(const QString& taskId)
 {
     Application::instance().logger()->info("TaskManager", QString::fromUtf8("开始任务: %1").arg(taskId));
 
-    m_apiService->startTask(
+    ApiService::instance().resumeTask(
         taskId,
         [this, taskId](const QJsonObject& response) {
             // 更新本地任务状态
@@ -223,7 +225,7 @@ void TaskManager::pauseTask(const QString& taskId)
 {
     Application::instance().logger()->info("TaskManager", QString::fromUtf8("暂停任务: %1").arg(taskId));
 
-    m_apiService->pauseTask(
+    ApiService::instance().pauseTask(
         taskId,
         [this, taskId](const QJsonObject& response) {
             // 更新本地任务状态
@@ -247,7 +249,7 @@ void TaskManager::resumeTask(const QString& taskId)
 {
     Application::instance().logger()->info("TaskManager", QString::fromUtf8("恢复任务: %1").arg(taskId));
 
-    m_apiService->resumeTask(
+    ApiService::instance().resumeTask(
         taskId,
         [this, taskId](const QJsonObject& response) {
             // 更新本地任务状态
@@ -271,7 +273,7 @@ void TaskManager::cancelTask(const QString& taskId)
 {
     Application::instance().logger()->info("TaskManager", QString::fromUtf8("取消任务: %1").arg(taskId));
 
-    m_apiService->cancelTask(
+    ApiService::instance().cancelTask(
         taskId,
         [this, taskId](const QJsonObject& response) {
             // 更新本地任务状态
@@ -295,8 +297,9 @@ void TaskManager::deleteTask(const QString& taskId)
 {
     Application::instance().logger()->info("TaskManager", QString::fromUtf8("删除任务: %1").arg(taskId));
 
-    m_apiService->deleteTask(
+    ApiService::instance().deleteTask(
         taskId,
+        false,  // deleteCloudData
         [this, taskId](const QJsonObject& response) {
             // 从本地列表删除
             removeTask(taskId);
@@ -317,7 +320,7 @@ void TaskManager::fetchTaskDetails(const QString& taskId)
 {
     Application::instance().logger()->info("TaskManager", QString::fromUtf8("获取任务详情: %1").arg(taskId));
 
-    m_apiService->getTaskDetails(
+    ApiService::instance().getTask(
         taskId,
         [this, taskId](const QJsonObject& response) {
             // 更新任务信息

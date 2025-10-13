@@ -11,7 +11,6 @@
 
 UserManager::UserManager(QObject *parent)
     : QObject(parent)
-    , m_apiService(new ApiService(this))
     , m_currentUser(nullptr)
 {
 }
@@ -53,7 +52,7 @@ void UserManager::refreshUserInfo()
 
     Application::instance().logger()->info("UserManager", QString::fromUtf8("刷新用户信息"));
 
-    m_apiService->getUserInfo(
+    ApiService::instance().getCurrentUser(
         [this](const QJsonObject& response) {
             // 更新用户信息
             if (m_currentUser) {
@@ -95,7 +94,7 @@ void UserManager::updateProfile(const QString& username, const QString& email,
     profileData["phone"] = phone;
     profileData["avatar"] = avatar;
 
-    m_apiService->updateProfile(
+    ApiService::instance().updateUserProfile(
         profileData,
         [this, username, email, phone, avatar](const QJsonObject& response) {
             // 更新本地用户信息
@@ -121,18 +120,22 @@ void UserManager::changePassword(const QString& oldPassword, const QString& newP
 {
     Application::instance().logger()->info("UserManager", QString::fromUtf8("修改密码"));
 
-    m_apiService->changePassword(
-        oldPassword,
-        newPassword,
-        [this](const QJsonObject& response) {
-            Application::instance().logger()->info("UserManager", QString::fromUtf8("密码修改成功"));
-            emit passwordChanged();
-        },
-        [this](int statusCode, const QString& error) {
-            Application::instance().logger()->error("UserManager", QString::fromUtf8("修改密码失败: %1").arg(error));
-            emit passwordChangeFailed(error);
-        }
-    );
+    // TODO: Add changePassword API endpoint to ApiService
+    Application::instance().logger()->warning("UserManager", QString::fromUtf8("修改密码功能暂未实现"));
+    emit passwordChangeFailed(QString::fromUtf8("修改密码功能暂未实现"));
+
+    // ApiService::instance().changePassword(
+    //     oldPassword,
+    //     newPassword,
+    //     [this](const QJsonObject& response) {
+    //         Application::instance().logger()->info("UserManager", QString::fromUtf8("密码修改成功"));
+    //         emit passwordChanged();
+    //     },
+    //     [this](int statusCode, const QString& error) {
+    //         Application::instance().logger()->error("UserManager", QString::fromUtf8("修改密码失败: %1").arg(error));
+    //         emit passwordChangeFailed(error);
+    //     }
+    // );
 }
 
 void UserManager::recharge(double amount, const QString& paymentMethod)

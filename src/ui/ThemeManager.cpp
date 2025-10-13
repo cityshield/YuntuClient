@@ -135,7 +135,7 @@ void ThemeManager::loadThemeSettings()
     updateThemeColors();
 }
 
-QString ThemeManager::loadStyleSheet(const QString& fileName)
+QString ThemeManager::loadStyleSheet(const QString& fileName) const
 {
     QFile file(fileName);
     if (file.open(QFile::ReadOnly | QFile::Text)) {
@@ -482,7 +482,7 @@ void ThemeManager::updateThemeColors()
     }
 }
 
-QString ThemeManager::processStyleSheet(const QString& qss)
+QString ThemeManager::processStyleSheet(const QString& qss) const
 {
     QString processed = qss;
 

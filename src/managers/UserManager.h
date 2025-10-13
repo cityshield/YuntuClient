@@ -193,7 +193,6 @@ private:
     void updateMemberLevel(MemberLevel level);
 
 private:
-    ApiService* m_apiService;
     User* m_currentUser;
 };
 
