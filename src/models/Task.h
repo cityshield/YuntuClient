@@ -17,13 +17,14 @@
  */
 enum class TaskStatus {
     Draft = 0,          // 草稿（未提交）
-    Pending = 1,        // 待审核
-    Queued = 2,         // 队列中
-    Rendering = 3,      // 渲染中
-    Paused = 4,         // 已暂停
-    Completed = 5,      // 已完成
-    Failed = 6,         // 失败
-    Cancelled = 7       // 已取消
+    Uploading = 1,      // 上传中
+    Pending = 2,        // 待审核
+    Queued = 3,         // 队列中
+    Rendering = 4,      // 渲染中
+    Paused = 5,         // 已暂停
+    Completed = 6,      // 已完成
+    Failed = 7,         // 失败
+    Cancelled = 8       // 已取消
 };
 
 /**

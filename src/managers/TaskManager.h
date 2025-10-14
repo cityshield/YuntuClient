@@ -13,6 +13,7 @@
 #include "../models/RenderConfig.h"
 #include "../network/ApiService.h"
 #include "../network/WebSocketClient.h"
+#include "../network/FileUploader.h"
 
 /**
  * @brief 任务管理器
@@ -209,6 +210,22 @@ signals:
      */
     void taskDetailsFetched(Task* task);
 
+    /**
+     * @brief 文件上传进度信号
+     * @param taskId 任务ID（本地临时ID）
+     * @param progress 上传进度 (0-100)
+     * @param uploadedBytes 已上传字节数
+     * @param totalBytes 总字节数
+     */
+    void fileUploadProgress(const QString& taskId, int progress, qint64 uploadedBytes, qint64 totalBytes);
+
+    /**
+     * @brief 文件上传失败信号
+     * @param taskId 任务ID（本地临时ID）
+     * @param error 错误信息
+     */
+    void fileUploadFailed(const QString& taskId, const QString& error);
+
 private:
     explicit TaskManager(QObject *parent = nullptr);
     ~TaskManager();
@@ -250,9 +267,11 @@ private:
 
 private:
     WebSocketClient* m_wsClient;
+    FileUploader* m_fileUploader;
 
     QList<Task*> m_tasks;
     QMap<QString, Task*> m_taskMap;  // taskId -> Task* 快速查找
+    QMap<QString, Task*> m_uploadingTasks;  // 正在上传的任务（本地临时ID -> Task*）
 
     bool m_isInitialized;
 };

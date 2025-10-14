@@ -285,6 +285,8 @@ QString Task::statusString() const
     switch (m_status) {
         case TaskStatus::Draft:
             return QString::fromUtf8("草稿");
+        case TaskStatus::Uploading:
+            return QString::fromUtf8("上传中");
         case TaskStatus::Pending:
             return QString::fromUtf8("待审核");
         case TaskStatus::Queued:

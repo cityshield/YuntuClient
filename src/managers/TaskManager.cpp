@@ -16,8 +16,11 @@
 TaskManager::TaskManager(QObject *parent)
     : QObject(parent)
     , m_wsClient(nullptr)
+    , m_fileUploader(nullptr)
     , m_isInitialized(false)
 {
+    // 创建文件上传器
+    m_fileUploader = new FileUploader(this);
 }
 
 TaskManager::~TaskManager()
@@ -171,30 +174,116 @@ void TaskManager::submitTask(Task* task)
 
     Application::instance().logger()->info("TaskManager", QString::fromUtf8("提交任务: %1").arg(task->taskName()));
 
-    // 将任务转换为 JSON
-    QJsonObject taskJson = task->toJson();
+    // 检查场景文件是否存在
+    QString sceneFile = task->sceneFile();
+    if (sceneFile.isEmpty()) {
+        Application::instance().logger()->error("TaskManager", QString::fromUtf8("提交任务失败: 场景文件路径为空"));
+        emit taskSubmissionFailed("", QString::fromUtf8("场景文件路径为空"));
+        return;
+    }
 
-    ApiService::instance().createTask(
-        taskJson,
-        [this, task](const QJsonObject& response) {
-            // 更新任务 ID
-            QString taskId = response["taskId"].toString();
-            task->setTaskId(taskId);
-            task->setStatus(TaskStatus::Pending);
+    QFile file(sceneFile);
+    if (!file.exists()) {
+        Application::instance().logger()->error("TaskManager", QString::fromUtf8("提交任务失败: 场景文件不存在: %1").arg(sceneFile));
+        emit taskSubmissionFailed("", QString::fromUtf8("场景文件不存在: %1").arg(sceneFile));
+        return;
+    }
 
-            // 更新 map
-            m_taskMap[taskId] = task;
+    // 生成本地临时 ID（用于跟踪上传进度）
+    QString localTaskId = QString("local_%1").arg(QDateTime::currentMSecsSinceEpoch());
 
-            Application::instance().logger()->info("TaskManager", QString::fromUtf8("任务提交成功: %1").arg(taskId));
-            emit taskSubmitted(taskId);
-            emit taskStatusUpdated(taskId, TaskStatus::Pending);
-            emit taskListUpdated();
-        },
-        [this, task](int statusCode, const QString& error) {
-            Application::instance().logger()->error("TaskManager", QString::fromUtf8("任务提交失败: %1").arg(error));
-            emit taskSubmissionFailed(task->taskId(), error);
+    // 添加到任务列表（如果还没有）
+    if (!m_tasks.contains(task)) {
+        addTask(task);
+    }
+
+    // 更新任务状态为上传中
+    task->setStatus(TaskStatus::Uploading);
+    task->setProgress(0);
+    m_uploadingTasks[localTaskId] = task;
+
+    Application::instance().logger()->info("TaskManager", QString::fromUtf8("开始上传场景文件: %1").arg(sceneFile));
+    emit taskStatusUpdated(localTaskId, TaskStatus::Uploading);
+    emit taskListUpdated();
+
+    // 连接上传器信号
+    connect(m_fileUploader, &FileUploader::progressChanged, this,
+        [this, localTaskId, task](int progress, qint64 uploadedBytes, qint64 totalBytes) {
+            task->setProgress(progress);
+            emit fileUploadProgress(localTaskId, progress, uploadedBytes, totalBytes);
+            emit taskProgressUpdated(localTaskId, progress);
         }
     );
+
+    connect(m_fileUploader, &FileUploader::uploadFinished, this,
+        [this, localTaskId, task, sceneFile](bool success) {
+            // 断开信号连接
+            disconnect(m_fileUploader, nullptr, this, nullptr);
+
+            if (!success) {
+                Application::instance().logger()->error("TaskManager", QString::fromUtf8("文件上传失败"));
+                task->setStatus(TaskStatus::Failed);
+                task->setErrorMessage(QString::fromUtf8("文件上传失败"));
+                m_uploadingTasks.remove(localTaskId);
+                emit fileUploadFailed(localTaskId, QString::fromUtf8("文件上传失败"));
+                emit taskSubmissionFailed(localTaskId, QString::fromUtf8("文件上传失败"));
+                emit taskListUpdated();
+                return;
+            }
+
+            Application::instance().logger()->info("TaskManager", QString::fromUtf8("文件上传成功，开始创建任务"));
+
+            // 文件上传成功，调用后端 API 创建任务
+            QJsonObject taskJson = task->toJson();
+            taskJson["sceneFileUrl"] = sceneFile;  // 实际应该是 OSS URL，这里简化处理
+
+            ApiService::instance().createTask(
+                taskJson,
+                [this, localTaskId, task](const QJsonObject& response) {
+                    // 更新任务 ID
+                    QString taskId = response["taskId"].toString();
+                    task->setTaskId(taskId);
+                    task->setStatus(TaskStatus::Pending);
+                    task->setProgress(0);
+
+                    // 更新 map
+                    m_taskMap[taskId] = task;
+                    m_uploadingTasks.remove(localTaskId);
+
+                    Application::instance().logger()->info("TaskManager", QString::fromUtf8("任务提交成功: %1").arg(taskId));
+                    emit taskSubmitted(taskId);
+                    emit taskStatusUpdated(taskId, TaskStatus::Pending);
+                    emit taskListUpdated();
+                },
+                [this, localTaskId, task](int statusCode, const QString& error) {
+                    Application::instance().logger()->error("TaskManager", QString::fromUtf8("任务提交失败: %1").arg(error));
+                    task->setStatus(TaskStatus::Failed);
+                    task->setErrorMessage(error);
+                    m_uploadingTasks.remove(localTaskId);
+                    emit taskSubmissionFailed(localTaskId, error);
+                    emit taskListUpdated();
+                }
+            );
+        }
+    );
+
+    connect(m_fileUploader, &FileUploader::uploadError, this,
+        [this, localTaskId, task](const QString& error) {
+            // 断开信号连接
+            disconnect(m_fileUploader, nullptr, this, nullptr);
+
+            Application::instance().logger()->error("TaskManager", QString::fromUtf8("文件上传错误: %1").arg(error));
+            task->setStatus(TaskStatus::Failed);
+            task->setErrorMessage(error);
+            m_uploadingTasks.remove(localTaskId);
+            emit fileUploadFailed(localTaskId, error);
+            emit taskSubmissionFailed(localTaskId, error);
+            emit taskListUpdated();
+        }
+    );
+
+    // 开始上传文件
+    m_fileUploader->startUpload(sceneFile, localTaskId);
 }
 
 void TaskManager::startTask(const QString& taskId)
@@ -207,12 +296,12 @@ void TaskManager::startTask(const QString& taskId)
             // 更新本地任务状态
             Task* task = getTaskById(taskId);
             if (task) {
-                task->setStatus(TaskStatus::Queued);
+                task->setStatus(TaskStatus::Rendering);
             }
 
             Application::instance().logger()->info("TaskManager", QString::fromUtf8("任务开始成功: %1").arg(taskId));
             emit taskOperationSuccess(taskId, "start");
-            emit taskStatusUpdated(taskId, TaskStatus::Queued);
+            emit taskStatusUpdated(taskId, TaskStatus::Rendering);
         },
         [this, taskId](int statusCode, const QString& error) {
             Application::instance().logger()->error("TaskManager", QString::fromUtf8("开始任务失败: %1").arg(error));
