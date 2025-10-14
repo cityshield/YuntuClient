@@ -25,7 +25,7 @@ void Config::save()
 // API配置
 QString Config::apiBaseUrl() const
 {
-    return m_settings->value("api/baseUrl", "https://api.yuntu.com").toString();
+    return m_settings->value("api/baseUrl", "http://localhost:8000").toString();
 }
 
 void Config::setApiBaseUrl(const QString &url)
@@ -36,7 +36,7 @@ void Config::setApiBaseUrl(const QString &url)
 
 QString Config::wsBaseUrl() const
 {
-    return m_settings->value("api/wsBaseUrl", "wss://api.yuntu.com/ws").toString();
+    return m_settings->value("api/wsBaseUrl", "ws://localhost:8000/ws").toString();
 }
 
 void Config::setWsBaseUrl(const QString &url)

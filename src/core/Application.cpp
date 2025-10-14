@@ -1,6 +1,7 @@
 #include "Application.h"
 #include "Config.h"
 #include "Logger.h"
+#include "../network/HttpClient.h"
 #include <QDir>
 #include <QStandardPaths>
 
@@ -29,6 +30,10 @@ void Application::initialize()
 
     // 加载配置
     m_config->load();
+
+    // 配置 HTTP 客户端
+    HttpClient::instance().setBaseUrl(m_config->apiBaseUrl());
+    m_logger->info("Application", QString("API Base URL: %1").arg(m_config->apiBaseUrl()));
 
     // 创建必要的目录
     QString appDataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
