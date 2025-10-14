@@ -41,9 +41,9 @@ void Logger::initialize()
         m_stream->setEncoding(QStringConverter::Utf8);
 
         // 记录启动分隔符
-        writeToFile("=".repeated(80));
+        writeToFile(QString("=").repeated(80));
         writeToFile(QString("Application Started: %1").arg(QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss")));
-        writeToFile("=".repeated(80));
+        writeToFile(QString("=").repeated(80));
     }
 }
 
@@ -157,14 +157,14 @@ void Logger::logSystemInfo()
     if (m_stream) {
         *m_stream << "\n";
         *m_stream << "System Information:\n";
-        *m_stream << "-" << QString("-").repeated(78) << "\n";
+        *m_stream << QString("-").repeated(80) << "\n";
         *m_stream << "Application: " << QCoreApplication::applicationName() << "\n";
         *m_stream << "Version: " << QCoreApplication::applicationVersion() << "\n";
         *m_stream << "OS: " << QSysInfo::prettyProductName() << "\n";
         *m_stream << "Kernel: " << QSysInfo::kernelType() << " " << QSysInfo::kernelVersion() << "\n";
         *m_stream << "CPU Architecture: " << QSysInfo::currentCpuArchitecture() << "\n";
         *m_stream << "Build ABI: " << QSysInfo::buildAbi() << "\n";
-        *m_stream << "-" << QString("-").repeated(78) << "\n";
+        *m_stream << QString("-").repeated(80) << "\n";
         m_stream->flush();
     }
 }
