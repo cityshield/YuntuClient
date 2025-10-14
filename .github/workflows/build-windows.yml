@@ -80,25 +80,40 @@ jobs:
         Copy-Item "$env:Qt6_DIR\bin\Qt6Sql.dll" .
       shell: powershell
 
+    - name: Get UTC+8 timestamp
+      id: timestamp
+      run: |
+        # 获取 UTC 时间并转换为 UTC+8
+        $utcTime = (Get-Date).ToUniversalTime()
+        $utc8Time = $utcTime.AddHours(8)
+        $timestamp = $utc8Time.ToString("yyyyMMdd-HHmmss")
+        echo "timestamp=$timestamp" >> $env:GITHUB_OUTPUT
+        Write-Host "UTC+8 Timestamp: $timestamp"
+      shell: powershell
+
     - name: Package artifacts
       run: |
-        mkdir YuntuClient_Test_Package
-        Copy-Item build-test\Release\YuntuClient_Test.exe YuntuClient_Test_Package\
-        Copy-Item build-test\Release\*.dll YuntuClient_Test_Package\
-        Compress-Archive -Path YuntuClient_Test_Package\* -DestinationPath YuntuClient_Test_Windows_x64.zip
+        $timestamp = "${{ steps.timestamp.outputs.timestamp }}"
+        $zipFileName = "YuntuClient_Test_Windows_x64_${timestamp}.zip"
+        Write-Host "Creating package: $zipFileName"
+
+        # 直接压缩 Release 目录中的所有文件（不创建额外的文件夹）
+        Compress-Archive -Path build-test\Release\* -DestinationPath $zipFileName
+
+        Write-Host "Package created successfully: $zipFileName"
       shell: powershell
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: YuntuClient-Test-Windows-x64
-        path: YuntuClient_Test_Windows_x64.zip
+        name: YuntuClient-Test-Windows-x64-${{ steps.timestamp.outputs.timestamp }}
+        path: YuntuClient_Test_Windows_x64_${{ steps.timestamp.outputs.timestamp }}.zip
         retention-days: 30
 
     - name: Create Release (on tag)
       if: startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v1
       with:
-        files: YuntuClient_Test_Windows_x64.zip
+        files: YuntuClient_Test_Windows_x64_${{ steps.timestamp.outputs.timestamp }}.zip
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
