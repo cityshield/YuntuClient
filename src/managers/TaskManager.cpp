@@ -206,19 +206,29 @@ void TaskManager::submitTask(Task* task)
     emit taskStatusUpdated(localTaskId, TaskStatus::Uploading);
     emit taskListUpdated();
 
-    // 连接上传器信号
+    // 先断开之前可能存在的所有连接，避免重复连接
+    disconnect(m_fileUploader, &FileUploader::progressChanged, this, nullptr);
+    disconnect(m_fileUploader, &FileUploader::uploadFinished, this, nullptr);
+    disconnect(m_fileUploader, &FileUploader::uploadError, this, nullptr);
+
+    // 连接上传器信号 - 使用 Qt::UniqueConnection 避免重复连接
     connect(m_fileUploader, &FileUploader::progressChanged, this,
         [this, localTaskId, task](int progress, qint64 uploadedBytes, qint64 totalBytes) {
+            if (!m_uploadingTasks.contains(localTaskId)) {
+                return; // 任务已被取消或完成
+            }
             task->setProgress(progress);
             emit fileUploadProgress(localTaskId, progress, uploadedBytes, totalBytes);
             emit taskProgressUpdated(localTaskId, progress);
-        }
+        },
+        Qt::UniqueConnection
     );
 
     connect(m_fileUploader, &FileUploader::uploadFinished, this,
         [this, localTaskId, task, sceneFile](bool success) {
-            // 断开信号连接
-            disconnect(m_fileUploader, nullptr, this, nullptr);
+            if (!m_uploadingTasks.contains(localTaskId)) {
+                return; // 任务已被取消或完成
+            }
 
             if (!success) {
                 Application::instance().logger()->error("TaskManager", QString::fromUtf8("文件上传失败"));
@@ -240,6 +250,10 @@ void TaskManager::submitTask(Task* task)
             ApiService::instance().createTask(
                 taskJson,
                 [this, localTaskId, task](const QJsonObject& response) {
+                    if (!m_uploadingTasks.contains(localTaskId)) {
+                        return; // 任务已被取消
+                    }
+
                     // 更新任务 ID
                     QString taskId = response["taskId"].toString();
                     task->setTaskId(taskId);
@@ -256,6 +270,10 @@ void TaskManager::submitTask(Task* task)
                     emit taskListUpdated();
                 },
                 [this, localTaskId, task](int statusCode, const QString& error) {
+                    if (!m_uploadingTasks.contains(localTaskId)) {
+                        return; // 任务已被取消
+                    }
+
                     Application::instance().logger()->error("TaskManager", QString::fromUtf8("任务提交失败: %1").arg(error));
                     task->setStatus(TaskStatus::Failed);
                     task->setErrorMessage(error);
@@ -264,13 +282,15 @@ void TaskManager::submitTask(Task* task)
                     emit taskListUpdated();
                 }
             );
-        }
+        },
+        Qt::UniqueConnection
     );
 
     connect(m_fileUploader, &FileUploader::uploadError, this,
         [this, localTaskId, task](const QString& error) {
-            // 断开信号连接
-            disconnect(m_fileUploader, nullptr, this, nullptr);
+            if (!m_uploadingTasks.contains(localTaskId)) {
+                return; // 任务已被取消或完成
+            }
 
             Application::instance().logger()->error("TaskManager", QString::fromUtf8("文件上传错误: %1").arg(error));
             task->setStatus(TaskStatus::Failed);
@@ -279,7 +299,8 @@ void TaskManager::submitTask(Task* task)
             emit fileUploadFailed(localTaskId, error);
             emit taskSubmissionFailed(localTaskId, error);
             emit taskListUpdated();
-        }
+        },
+        Qt::UniqueConnection
     );
 
     // 开始上传文件
