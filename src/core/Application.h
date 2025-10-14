@@ -30,6 +30,11 @@ private:
     Application(const Application&) = delete;
     Application& operator=(const Application&) = delete;
 
+    /**
+     * @brief 上传日志文件到 OSS
+     */
+    void uploadLogsToOSS();
+
     std::unique_ptr<Config> m_config;
     std::unique_ptr<Logger> m_logger;
 };

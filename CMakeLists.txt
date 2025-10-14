@@ -49,6 +49,7 @@ set(SOURCES
 
     # Services
     src/services/MayaDetector.cpp
+    src/services/LogUploader.cpp
 
     # UI - Theme
     src/ui/ThemeManager.cpp
@@ -94,6 +95,7 @@ set(HEADERS
 
     # Services
     src/services/MayaDetector.h
+    src/services/LogUploader.h
 
     # UI - Theme
     src/ui/ThemeManager.h

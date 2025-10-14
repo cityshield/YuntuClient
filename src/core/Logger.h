@@ -33,12 +33,34 @@ public:
 
     void log(LogLevel level, const QString &category, const QString &message);
 
+    /**
+     * @brief 记录崩溃信息（包含堆栈跟踪）
+     */
+    void logCrash(const QString &crashMessage);
+
+    /**
+     * @brief 获取当前日志文件路径
+     */
+    QString currentLogFilePath() const { return m_logFile ? m_logFile->fileName() : QString(); }
+
+    /**
+     * @brief 获取所有日志文件路径
+     */
+    QStringList getAllLogFiles() const;
+
+    /**
+     * @brief 记录系统信息（启动时调用）
+     */
+    void logSystemInfo();
+
 private:
     void writeToFile(const QString &message);
     QString levelToString(LogLevel level) const;
+    QString getStackTrace() const;
 
     QFile *m_logFile;
     QTextStream *m_stream;
     QMutex m_mutex;
     LogLevel m_minLevel;
+    QString m_logPath;
 };
