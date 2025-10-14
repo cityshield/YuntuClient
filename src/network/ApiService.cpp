@@ -28,6 +28,14 @@ void ApiService::sendSmsCode(const QString& phone,
     HttpClient::instance().post("/api/v1/auth/send-code", data, onSuccess, onError);
 }
 
+void ApiService::sendVerificationCode(const QString& phone,
+                                     SuccessCallback onSuccess,
+                                     ErrorCallback onError)
+{
+    // 直接调用 sendSmsCode
+    sendSmsCode(phone, onSuccess, onError);
+}
+
 void ApiService::login(const QString& username,
                       const QString& password,
                       SuccessCallback onSuccess,
@@ -41,19 +49,17 @@ void ApiService::login(const QString& username,
 }
 
 void ApiService::registerUser(const QString& username,
-                             const QString& email,
-                             const QString& password,
                              const QString& phone,
+                             const QString& verificationCode,
+                             const QString& password,
                              SuccessCallback onSuccess,
                              ErrorCallback onError)
 {
     QJsonObject data;
     data["username"] = username;
-    data["email"] = email;
+    data["phone"] = phone;
+    data["verification_code"] = verificationCode;
     data["password"] = password;
-    if (!phone.isEmpty()) {
-        data["phone"] = phone;
-    }
 
     HttpClient::instance().post("/api/v1/auth/register", data, onSuccess, onError);
 }

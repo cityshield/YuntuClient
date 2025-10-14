@@ -107,17 +107,35 @@ void AuthManager::login(const QString& username, const QString& password, bool r
     );
 }
 
-void AuthManager::registerUser(const QString& username, const QString& email,
-                               const QString& password, const QString& phone)
+void AuthManager::sendVerificationCode(const QString& phone)
 {
-    Application::instance().logger()->info("AuthManager", QString::fromUtf8("尝试注册: %1").arg(username));
+    Application::instance().logger()->info("AuthManager", QString::fromUtf8("发送验证码到: %1").arg(phone));
+
+    // 调用 API 发送验证码
+    ApiService::instance().sendVerificationCode(
+        phone,
+        [this, phone](const QJsonObject& response) {
+            Application::instance().logger()->info("AuthManager", QString::fromUtf8("验证码发送成功: %1").arg(phone));
+            // 发送成功不需要特殊处理，RegisterDialog 会自动开始倒计时
+        },
+        [this](int statusCode, const QString& error) {
+            Application::instance().logger()->error("AuthManager", QString::fromUtf8("验证码发送失败: %1").arg(error));
+            // TODO: 可以添加一个专门的信号来通知验证码发送失败
+        }
+    );
+}
+
+void AuthManager::registerUser(const QString& username, const QString& phone,
+                               const QString& verificationCode, const QString& password)
+{
+    Application::instance().logger()->info("AuthManager", QString::fromUtf8("尝试注册: %1 (手机: %2)").arg(username, phone));
 
     // 调用 API 注册
     ApiService::instance().registerUser(
         username,
-        email,
-        password,
         phone,
+        verificationCode,
+        password,
         [this, username](const QJsonObject& response) {
             Application::instance().logger()->info("AuthManager", QString::fromUtf8("注册成功: %1").arg(username));
             emit registerSuccess();

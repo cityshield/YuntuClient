@@ -32,6 +32,13 @@ public:
                     ErrorCallback onError = nullptr);
 
     /**
+     * @brief 发送验证码（sendSmsCode的别名）
+     */
+    void sendVerificationCode(const QString& phone,
+                             SuccessCallback onSuccess = nullptr,
+                             ErrorCallback onError = nullptr);
+
+    /**
      * @brief 用户名密码登录
      */
     void login(const QString& username,
@@ -40,12 +47,12 @@ public:
               ErrorCallback onError = nullptr);
 
     /**
-     * @brief 用户注册
+     * @brief 用户注册（使用手机号和验证码）
      */
     void registerUser(const QString& username,
-                     const QString& email,
-                     const QString& password,
                      const QString& phone,
+                     const QString& verificationCode,
+                     const QString& password,
                      SuccessCallback onSuccess = nullptr,
                      ErrorCallback onError = nullptr);
 

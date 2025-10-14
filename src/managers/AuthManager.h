@@ -45,14 +45,20 @@ public:
     void login(const QString& username, const QString& password, bool remember = false);
 
     /**
-     * @brief 用户注册
-     * @param username 用户名
-     * @param email 邮箱
-     * @param password 密码
-     * @param phone 手机号（可选）
+     * @brief 发送短信验证码
+     * @param phone 手机号
      */
-    void registerUser(const QString& username, const QString& email,
-                     const QString& password, const QString& phone = QString());
+    void sendVerificationCode(const QString& phone);
+
+    /**
+     * @brief 用户注册（使用手机号和验证码）
+     * @param username 用户名
+     * @param phone 手机号
+     * @param verificationCode 短信验证码
+     * @param password 密码
+     */
+    void registerUser(const QString& username, const QString& phone,
+                     const QString& verificationCode, const QString& password);
 
     /**
      * @brief 用户登出

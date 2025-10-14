@@ -17,14 +17,17 @@ RegisterDialog::RegisterDialog(QWidget *parent)
     , m_titleLabel(nullptr)
     , m_subtitleLabel(nullptr)
     , m_usernameEdit(nullptr)
-    , m_emailEdit(nullptr)
     , m_phoneEdit(nullptr)
+    , m_verificationCodeEdit(nullptr)
     , m_passwordEdit(nullptr)
     , m_confirmPasswordEdit(nullptr)
+    , m_sendCodeButton(nullptr)
     , m_registerButton(nullptr)
     , m_cancelButton(nullptr)
     , m_errorLabel(nullptr)
     , m_mainLayout(nullptr)
+    , m_countdownTimer(new QTimer(this))
+    , m_countdown(0)
 {
     initUI();
     connectSignals();
@@ -32,7 +35,7 @@ RegisterDialog::RegisterDialog(QWidget *parent)
     // 设置对话框属性
     setWindowTitle(QString::fromUtf8("创建新账号"));
     setModal(true);
-    setFixedSize(450, 600);
+    setFixedSize(450, 650);
 }
 
 RegisterDialog::~RegisterDialog()
@@ -46,8 +49,8 @@ void RegisterDialog::onRegisterClicked()
     }
 
     QString username = m_usernameEdit->text().trimmed();
-    QString email = m_emailEdit->text().trimmed();
     QString phone = m_phoneEdit->text().trimmed();
+    QString verificationCode = m_verificationCodeEdit->text().trimmed();
     QString password = m_passwordEdit->text();
 
     // 禁用注册按钮
@@ -57,16 +60,57 @@ void RegisterDialog::onRegisterClicked()
     // 清除错误提示
     m_errorLabel->clear();
 
-    // 调用认证管理器注册
-    AuthManager::instance().registerUser(username, email, password, phone);
+    // 调用认证管理器注册（使用手机号和验证码）
+    AuthManager::instance().registerUser(username, phone, verificationCode, password);
 
     Application::instance().logger()->info("RegisterDialog",
-        QString::fromUtf8("尝试注册: %1 (%2)").arg(username, email));
+        QString::fromUtf8("尝试注册: %1 (手机: %2)").arg(username, phone));
 }
 
 void RegisterDialog::onCancelClicked()
 {
     reject();
+}
+
+void RegisterDialog::onSendCodeClicked()
+{
+    QString phone = m_phoneEdit->text().trimmed();
+
+    // 验证手机号
+    if (phone.isEmpty()) {
+        showError(QString::fromUtf8("请输入手机号"));
+        m_phoneEdit->setFocus();
+        return;
+    }
+
+    if (!isValidPhone(phone)) {
+        showError(QString::fromUtf8("手机号格式不正确"));
+        m_phoneEdit->setFocus();
+        return;
+    }
+
+    // 调用API发送验证码
+    AuthManager::instance().sendVerificationCode(phone);
+
+    // 开始倒计时
+    startCountdown();
+
+    Application::instance().logger()->info("RegisterDialog",
+        QString::fromUtf8("发送验证码到: %1").arg(phone));
+}
+
+void RegisterDialog::onCountdownTick()
+{
+    m_countdown--;
+
+    if (m_countdown > 0) {
+        m_sendCodeButton->setText(QString::fromUtf8("%1秒后重新发送").arg(m_countdown));
+    } else {
+        // 倒计时结束，恢复按钮
+        m_countdownTimer->stop();
+        m_sendCodeButton->setEnabled(true);
+        m_sendCodeButton->setText(QString::fromUtf8("发送验证码"));
+    }
 }
 
 void RegisterDialog::onRegisterSuccess()
@@ -75,7 +119,7 @@ void RegisterDialog::onRegisterSuccess()
 
     // 显示成功消息
     QMessageBox::information(this, QString::fromUtf8("注册成功"),
-        QString::fromUtf8("注册成功！请使用您的邮箱和密码登录。"));
+        QString::fromUtf8("注册成功！请使用您的手机号和密码登录。"));
 
     accept();
 }
@@ -117,13 +161,23 @@ void RegisterDialog::initUI()
     m_usernameEdit = new FluentLineEdit(QString::fromUtf8("用户名"), this);
     m_usernameEdit->setPlaceholderText(QString::fromUtf8("请输入用户名（3-20个字符）"));
 
-    // 邮箱输入框
-    m_emailEdit = new FluentLineEdit(QString::fromUtf8("邮箱"), this);
-    m_emailEdit->setPlaceholderText(QString::fromUtf8("请输入邮箱地址"));
-
-    // 手机号输入框
-    m_phoneEdit = new FluentLineEdit(QString::fromUtf8("手机号（可选）"), this);
+    // 手机号输入框（必填）
+    m_phoneEdit = new FluentLineEdit(QString::fromUtf8("手机号"), this);
     m_phoneEdit->setPlaceholderText(QString::fromUtf8("请输入手机号"));
+
+    // 验证码输入框和发送按钮布局
+    QHBoxLayout *codeLayout = new QHBoxLayout();
+    codeLayout->setSpacing(10);
+
+    m_verificationCodeEdit = new FluentLineEdit(QString::fromUtf8("验证码"), this);
+    m_verificationCodeEdit->setPlaceholderText(QString::fromUtf8("请输入6位验证码"));
+
+    m_sendCodeButton = new FluentButton(QString::fromUtf8("发送验证码"), this);
+    m_sendCodeButton->setMinimumHeight(40);
+    m_sendCodeButton->setMinimumWidth(120);
+
+    codeLayout->addWidget(m_verificationCodeEdit, 1);
+    codeLayout->addWidget(m_sendCodeButton);
 
     // 密码输入框
     m_passwordEdit = new FluentLineEdit(QString::fromUtf8("密码"), this);
@@ -163,8 +217,8 @@ void RegisterDialog::initUI()
     m_mainLayout->addWidget(m_subtitleLabel);
     m_mainLayout->addSpacing(15);
     m_mainLayout->addWidget(m_usernameEdit);
-    m_mainLayout->addWidget(m_emailEdit);
     m_mainLayout->addWidget(m_phoneEdit);
+    m_mainLayout->addLayout(codeLayout);
     m_mainLayout->addWidget(m_passwordEdit);
     m_mainLayout->addWidget(m_confirmPasswordEdit);
     m_mainLayout->addWidget(m_errorLabel);
@@ -180,6 +234,10 @@ void RegisterDialog::initUI()
 
 void RegisterDialog::connectSignals()
 {
+    // 发送验证码按钮
+    connect(m_sendCodeButton, &FluentButton::clicked,
+            this, &RegisterDialog::onSendCodeClicked);
+
     // 注册按钮
     connect(m_registerButton, &FluentButton::clicked,
             this, &RegisterDialog::onRegisterClicked);
@@ -187,6 +245,10 @@ void RegisterDialog::connectSignals()
     // 取消按钮
     connect(m_cancelButton, &FluentButton::clicked,
             this, &RegisterDialog::onCancelClicked);
+
+    // 倒计时定时器
+    connect(m_countdownTimer, &QTimer::timeout,
+            this, &RegisterDialog::onCountdownTick);
 
     // 认证管理器信号
     connect(&AuthManager::instance(), &AuthManager::registerSuccess,
@@ -203,8 +265,8 @@ void RegisterDialog::connectSignals()
 bool RegisterDialog::validateInput()
 {
     QString username = m_usernameEdit->text().trimmed();
-    QString email = m_emailEdit->text().trimmed();
     QString phone = m_phoneEdit->text().trimmed();
+    QString verificationCode = m_verificationCodeEdit->text().trimmed();
     QString password = m_passwordEdit->text();
     QString confirmPassword = m_confirmPasswordEdit->text();
 
@@ -221,23 +283,29 @@ bool RegisterDialog::validateInput()
         return false;
     }
 
-    // 验证邮箱
-    if (email.isEmpty()) {
-        showError(QString::fromUtf8("请输入邮箱"));
-        m_emailEdit->setFocus();
+    // 验证手机号（必填）
+    if (phone.isEmpty()) {
+        showError(QString::fromUtf8("请输入手机号"));
+        m_phoneEdit->setFocus();
         return false;
     }
 
-    if (!isValidEmail(email)) {
-        showError(QString::fromUtf8("邮箱格式不正确"));
-        m_emailEdit->setFocus();
-        return false;
-    }
-
-    // 验证手机号（如果填写）
-    if (!phone.isEmpty() && !isValidPhone(phone)) {
+    if (!isValidPhone(phone)) {
         showError(QString::fromUtf8("手机号格式不正确"));
         m_phoneEdit->setFocus();
+        return false;
+    }
+
+    // 验证验证码
+    if (verificationCode.isEmpty()) {
+        showError(QString::fromUtf8("请输入验证码"));
+        m_verificationCodeEdit->setFocus();
+        return false;
+    }
+
+    if (verificationCode.length() != 6) {
+        showError(QString::fromUtf8("验证码应为6位数字"));
+        m_verificationCodeEdit->setFocus();
         return false;
     }
 
@@ -279,16 +347,20 @@ void RegisterDialog::showError(const QString &message)
     QTimer::singleShot(5000, m_errorLabel, &QLabel::hide);
 }
 
-bool RegisterDialog::isValidEmail(const QString &email)
-{
-    // 简单的邮箱格式验证
-    QRegularExpression regex("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
-    return regex.match(email).hasMatch();
-}
-
 bool RegisterDialog::isValidPhone(const QString &phone)
 {
     // 简单的中国手机号验证（11位数字，1开头）
     QRegularExpression regex("^1[3-9]\\d{9}$");
     return regex.match(phone).hasMatch();
+}
+
+void RegisterDialog::startCountdown()
+{
+    // 设置倒计时60秒
+    m_countdown = 60;
+    m_sendCodeButton->setEnabled(false);
+    m_sendCodeButton->setText(QString::fromUtf8("%1秒后重新发送").arg(m_countdown));
+
+    // 启动定时器，每秒触发一次
+    m_countdownTimer->start(1000);
 }
