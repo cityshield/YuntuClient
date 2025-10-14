@@ -204,19 +204,17 @@ void FileUploader::uploadChunk(int chunkIndex)
 
         m_chunkData[chunkIndex] = chunkData;
 
-        // 构造上传参数
-        QMap<QString, QString> fields;
-        fields["taskId"] = m_taskId;
-        fields["chunkIndex"] = QString::number(chunkIndex);
-        fields["totalChunks"] = QString::number(m_chunks.size());
-        fields["chunkHash"] = QString::fromLatin1(hash);
-
-        // TODO: 实际上传应该使用临时文件而不是内存中的数据
-        // 这里简化处理，实际项目中需要改进
+        // 构造上传参数（使用JSON格式）
+        QJsonObject data;
+        data["taskId"] = m_taskId;
+        data["chunkIndex"] = chunkIndex;
+        data["totalChunks"] = m_chunks.size();
+        data["chunkHash"] = QString::fromLatin1(hash);
+        data["chunkData"] = QString::fromLatin1(chunkData.toBase64());
 
         HttpClient::instance().post(
             "/api/v1/files/upload/chunk",
-            QJsonObject(),
+            data,
             [this, chunkIndex](const QJsonObject& response) {
                 // 上传成功
                 onChunkUploaded(chunkIndex, true);
