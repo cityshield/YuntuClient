@@ -5,6 +5,9 @@
 #include <QString>
 #include <QVector>
 #include <QMap>
+#include <QFuture>
+#include <QFutureWatcher>
+#include <QtConcurrent/QtConcurrent>
 
 /**
  * @brief 文件分片上传器

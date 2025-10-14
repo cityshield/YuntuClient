@@ -159,43 +159,77 @@ void FileUploader::uploadChunk(int chunkIndex)
         return;
     }
 
-    ChunkInfo& chunk = m_chunks[chunkIndex];
+    const ChunkInfo& chunk = m_chunks[chunkIndex];
 
-    // 读取分片数据
-    m_file->seek(chunk.offset);
-    QByteArray chunkData = m_file->read(chunk.size);
-
-    // 计算分片MD5
-    QByteArray hash = QCryptographicHash::hash(chunkData, QCryptographicHash::Md5).toHex();
-
-    qDebug() << "FileUploader: 上传分片" << chunkIndex << "/" << m_chunks.size();
+    qDebug() << "FileUploader: 准备上传分片" << chunkIndex << "/" << m_chunks.size();
 
     m_uploadingCount++;
-    m_chunkData[chunkIndex] = chunkData;
 
-    // 构造上传参数
-    QMap<QString, QString> fields;
-    fields["taskId"] = m_taskId;
-    fields["chunkIndex"] = QString::number(chunkIndex);
-    fields["totalChunks"] = QString::number(m_chunks.size());
-    fields["chunkHash"] = QString::fromLatin1(hash);
-
-    // TODO: 实际上传应该使用临时文件而不是内存中的数据
-    // 这里简化处理，实际项目中需要改进
-
-    HttpClient::instance().post(
-        "/api/v1/files/upload/chunk",
-        QJsonObject(),
-        [this, chunkIndex](const QJsonObject& response) {
-            // 上传成功
-            onChunkUploaded(chunkIndex, true);
-        },
-        [this, chunkIndex](int statusCode, const QString& error) {
-            // 上传失败
-            qWarning() << "FileUploader: 分片" << chunkIndex << "上传失败:" << error;
-            onChunkUploaded(chunkIndex, false);
+    // 使用 QtConcurrent 在后台线程读取文件和计算 MD5
+    // 这样不会阻塞 UI 线程
+    QFuture<QPair<QByteArray, QByteArray>> future = QtConcurrent::run([this, chunk]() -> QPair<QByteArray, QByteArray> {
+        // 在后台线程中执行耗时操作
+        QFile file(m_filePath);
+        if (!file.open(QIODevice::ReadOnly)) {
+            return QPair<QByteArray, QByteArray>();
         }
-    );
+
+        file.seek(chunk.offset);
+        QByteArray chunkData = file.read(chunk.size);
+        file.close();
+
+        // 计算 MD5
+        QByteArray hash = QCryptographicHash::hash(chunkData, QCryptographicHash::Md5).toHex();
+
+        return QPair<QByteArray, QByteArray>(chunkData, hash);
+    });
+
+    // 使用 QFutureWatcher 监听后台任务完成
+    QFutureWatcher<QPair<QByteArray, QByteArray>>* watcher = new QFutureWatcher<QPair<QByteArray, QByteArray>>(this);
+
+    connect(watcher, &QFutureWatcher<QPair<QByteArray, QByteArray>>::finished, this, [this, chunkIndex, watcher]() {
+        QPair<QByteArray, QByteArray> result = watcher->result();
+        QByteArray chunkData = result.first;
+        QByteArray hash = result.second;
+
+        watcher->deleteLater();
+
+        if (chunkData.isEmpty()) {
+            qWarning() << "FileUploader: 读取分片" << chunkIndex << "失败";
+            onChunkUploaded(chunkIndex, false);
+            return;
+        }
+
+        qDebug() << "FileUploader: 开始上传分片" << chunkIndex << "/" << m_chunks.size();
+
+        m_chunkData[chunkIndex] = chunkData;
+
+        // 构造上传参数
+        QMap<QString, QString> fields;
+        fields["taskId"] = m_taskId;
+        fields["chunkIndex"] = QString::number(chunkIndex);
+        fields["totalChunks"] = QString::number(m_chunks.size());
+        fields["chunkHash"] = QString::fromLatin1(hash);
+
+        // TODO: 实际上传应该使用临时文件而不是内存中的数据
+        // 这里简化处理，实际项目中需要改进
+
+        HttpClient::instance().post(
+            "/api/v1/files/upload/chunk",
+            QJsonObject(),
+            [this, chunkIndex](const QJsonObject& response) {
+                // 上传成功
+                onChunkUploaded(chunkIndex, true);
+            },
+            [this, chunkIndex](int statusCode, const QString& error) {
+                // 上传失败
+                qWarning() << "FileUploader: 分片" << chunkIndex << "上传失败:" << error;
+                onChunkUploaded(chunkIndex, false);
+            }
+        );
+    });
+
+    watcher->setFuture(future);
 }
 
 void FileUploader::onChunkUploaded(int chunkIndex, bool success)

@@ -15,6 +15,7 @@ find_package(Qt6 REQUIRED COMPONENTS
     Network
     Sql
     WebSockets
+    Concurrent
 )
 
 # 包含目录
@@ -133,6 +134,7 @@ target_link_libraries(${PROJECT_NAME}
     Qt6::Network
     Qt6::Sql
     Qt6::WebSockets
+    Qt6::Concurrent
 )
 
 # Windows 特定设置
