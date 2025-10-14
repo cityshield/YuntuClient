@@ -17,6 +17,7 @@
 
 LoginWindow::LoginWindow(QWidget *parent)
     : QWidget(parent)
+    , m_titleBar(nullptr)
     , m_logoLabel(nullptr)
     , m_titleLabel(nullptr)
     , m_subtitleLabel(nullptr)
@@ -27,7 +28,6 @@ LoginWindow::LoginWindow(QWidget *parent)
     , m_loginButton(nullptr)
     , m_registerButton(nullptr)
     , m_demoButton(nullptr)
-    , m_themeToggleButton(nullptr)
     , m_errorLabel(nullptr)
     , m_mainLayout(nullptr)
     , m_loginPanel(nullptr)
@@ -148,16 +148,17 @@ void LoginWindow::onLoginFailed(const QString &error)
     showError(error);
 }
 
-void LoginWindow::onThemeToggleClicked()
-{
-    ThemeManager::instance().toggleTheme();
-}
-
 void LoginWindow::initUI()
 {
     // 创建主布局
     m_mainLayout = new QVBoxLayout(this);
     m_mainLayout->setContentsMargins(0, 0, 0, 0);
+    m_mainLayout->setSpacing(0);
+
+    // 创建标题栏
+    m_titleBar = new TitleBar(this);
+    m_titleBar->setTitle(QString::fromUtf8("盛世云图 - 登录"));
+    m_mainLayout->addWidget(m_titleBar);
 
     // 创建登录面板
     m_loginPanel = new QWidget(this);
@@ -248,11 +249,6 @@ void LoginWindow::initUI()
     panelLayout->addWidget(m_demoButton);
     panelLayout->addStretch();
 
-    // 主题切换按钮（右上角）
-    m_themeToggleButton = new FluentButton(QString::fromUtf8("🌙"), this);
-    m_themeToggleButton->setFixedSize(40, 40);
-    m_themeToggleButton->move(width() - 50, 10);
-
     // 将登录面板居中
     m_mainLayout->addStretch();
     m_mainLayout->addWidget(m_loginPanel, 0, Qt::AlignCenter);
@@ -286,10 +282,6 @@ void LoginWindow::connectSignals()
     connect(m_forgotPasswordLabel, &QLabel::linkActivated,
             this, &LoginWindow::onForgotPasswordClicked);
 
-    // 主题切换
-    connect(m_themeToggleButton, &FluentButton::clicked,
-            this, &LoginWindow::onThemeToggleClicked);
-
     // 认证管理器信号
     connect(&AuthManager::instance(), &AuthManager::loginSuccess,
             this, &LoginWindow::onLoginSuccess);
@@ -303,16 +295,11 @@ void LoginWindow::connectSignals()
 
     // 主题变更时更新面板背景
     connect(&ThemeManager::instance(), &ThemeManager::themeChanged,
-            this, [this](ThemeType theme) {
+            this, [this](ThemeType) {
                 ThemeManager &themeMgr = ThemeManager::instance();
                 QString panelStyle = QString("background-color: %1; border-radius: 12px;")
                     .arg(themeMgr.getSurfaceColor().name());
                 m_loginPanel->setStyleSheet(panelStyle);
-
-                // 更新主题按钮图标
-                m_themeToggleButton->setText(theme == ThemeType::Dark ?
-                    QString::fromUtf8("☀️") : QString::fromUtf8("🌙"));
-
                 update();
             });
 }

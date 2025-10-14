@@ -13,6 +13,7 @@
 #include <QHBoxLayout>
 #include "../components/FluentButton.h"
 #include "../components/FluentLineEdit.h"
+#include "../components/TitleBar.h"
 
 /**
  * @brief 登录窗口
@@ -65,11 +66,6 @@ private slots:
     void onLoginFailed(const QString &error);
 
     /**
-     * @brief 主题切换按钮点击
-     */
-    void onThemeToggleClicked();
-
-    /**
      * @brief 演示模式按钮点击
      */
     void onDemoModeClicked();
@@ -96,6 +92,9 @@ private:
     void showError(const QString &message);
 
 private:
+    // 标题栏
+    TitleBar *m_titleBar;
+
     // Logo 和标题
     QLabel *m_logoLabel;
     QLabel *m_titleLabel;
@@ -113,7 +112,6 @@ private:
     FluentButton *m_loginButton;
     FluentButton *m_registerButton;
     FluentButton *m_demoButton;
-    FluentButton *m_themeToggleButton;
 
     // 错误提示
     QLabel *m_errorLabel;

@@ -58,9 +58,11 @@ set(SOURCES
     src/ui/components/FluentCard.cpp
     src/ui/components/FluentDialog.cpp
     src/ui/components/TaskItemWidget.cpp
+    src/ui/components/TitleBar.cpp
 
     # UI - Views
     src/ui/views/LoginWindow.cpp
+    src/ui/views/RegisterDialog.cpp
     src/ui/views/MainWindow.cpp
     src/ui/views/TaskDetailDialog.cpp
     src/ui/views/CreateTaskDialog.cpp
@@ -101,9 +103,11 @@ set(HEADERS
     src/ui/components/FluentCard.h
     src/ui/components/FluentDialog.h
     src/ui/components/TaskItemWidget.h
+    src/ui/components/TitleBar.h
 
     # UI - Views
     src/ui/views/LoginWindow.h
+    src/ui/views/RegisterDialog.h
     src/ui/views/MainWindow.h
     src/ui/views/TaskDetailDialog.h
     src/ui/views/CreateTaskDialog.h
