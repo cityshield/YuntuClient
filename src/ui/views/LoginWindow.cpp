@@ -4,6 +4,7 @@
  */
 
 #include "LoginWindow.h"
+#include "RegisterDialog.h"
 #include "../ThemeManager.h"
 #include "../../managers/AuthManager.h"
 #include "../../core/Logger.h"
@@ -90,9 +91,15 @@ void LoginWindow::onLoginClicked()
 
 void LoginWindow::onRegisterClicked()
 {
-    // TODO: 打开注册窗口
-    QMessageBox::information(this, QString::fromUtf8("注册"),
-        QString::fromUtf8("注册功能即将推出"));
+    RegisterDialog *registerDialog = new RegisterDialog(this);
+
+    if (registerDialog->exec() == QDialog::Accepted) {
+        // 注册成功后，可以自动填充登录信息或提示用户登录
+        Application::instance().logger()->info("LoginWindow",
+            QString::fromUtf8("用户完成注册，可以登录"));
+    }
+
+    registerDialog->deleteLater();
 }
 
 void LoginWindow::onForgotPasswordClicked()
