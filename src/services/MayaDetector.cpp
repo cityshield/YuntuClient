@@ -6,6 +6,7 @@
 #include <QRegularExpression>
 #include <QDebug>
 #include <QStringConverter>
+#include <QMap>
 
 #ifdef Q_OS_WIN
 #include <Windows.h>
@@ -128,25 +129,36 @@ QStringList MayaDetector::detectPlugins(const MayaSoftwareInfo &mayaInfo)
 {
     QStringList plugins;
 
-    // Maya 插件目录
+    // 1. Maya 内置插件目录
     QStringList pluginDirs;
     pluginDirs << mayaInfo.installPath + "/plug-ins";
     pluginDirs << mayaInfo.installPath + "/bin/plug-ins";
 
 #ifdef Q_OS_WIN
-    // Windows 用户插件目录
+    // 2. Windows 用户插件目录
     QString userPlugins = QDir::homePath() + "/Documents/maya/" + mayaInfo.version + "/plug-ins";
     pluginDirs << userPlugins;
 
-    // Windows 用户脚本目录（可能有Python插件）
-    QString userScripts = QDir::homePath() + "/Documents/maya/" + mayaInfo.version + "/scripts";
-    pluginDirs << userScripts;
+    // 3. 从 Maya.env 读取插件路径
+    QStringList envPaths = readMayaEnvPaths(mayaInfo.version);
+    pluginDirs.append(envPaths);
+
+    // 4. 从模块路径文件读取
+    QStringList modulePaths = readModulePaths(mayaInfo.version);
+    pluginDirs.append(modulePaths);
+
+    // 5. 扫描第三方插件注册表
+    QStringList registryPaths = scanThirdPartyPluginRegistry(mayaInfo.version);
+    pluginDirs.append(registryPaths);
+
 #elif defined(Q_OS_MAC)
     // macOS 用户插件目录
     QString userPlugins = QDir::homePath() + "/Library/Preferences/Autodesk/maya/" + mayaInfo.version + "/plug-ins";
     pluginDirs << userPlugins;
 #endif
 
+    // 去重
+    pluginDirs.removeDuplicates();
     qDebug() << "检测插件目录:" << pluginDirs;
 
     for (const QString &dir : pluginDirs) {
@@ -554,4 +566,203 @@ RendererInfo MayaDetector::detectRedshift(const QString &mayaPath)
     }
 
     return info;
+}
+
+// ============ 插件路径检测新方法 ============
+
+QStringList MayaDetector::readMayaEnvPaths(const QString &mayaVersion)
+{
+    QStringList paths;
+
+#ifdef Q_OS_WIN
+    // Maya.env 文件位置
+    QString mayaEnvPath = QDir::homePath() + "/Documents/maya/" + mayaVersion + "/Maya.env";
+
+    qDebug() << "读取 Maya.env:" << mayaEnvPath;
+
+    QFile file(mayaEnvPath);
+    if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        QTextStream in(&file);
+        while (!in.atEnd()) {
+            QString line = in.readLine().trimmed();
+
+            // 跳过注释和空行
+            if (line.isEmpty() || line.startsWith("#") || line.startsWith("//")) {
+                continue;
+            }
+
+            // 解析 MAYA_PLUG_IN_PATH 或 PATH
+            if (line.contains("MAYA_PLUG_IN_PATH") || line.contains("PATH")) {
+                QStringList parts = line.split("=");
+                if (parts.size() >= 2) {
+                    QString pathStr = parts[1].trimmed();
+                    // Windows 路径可能用 ; 分隔
+                    QStringList pathList = pathStr.split(";", Qt::SkipEmptyParts);
+                    for (const QString &p : pathList) {
+                        QString cleanPath = p.trimmed();
+                        if (!cleanPath.isEmpty() && QDir(cleanPath).exists()) {
+                            qDebug() << "  从 Maya.env 找到路径:" << cleanPath;
+                            paths.append(cleanPath);
+                        }
+                    }
+                }
+            }
+        }
+        file.close();
+    }
+#endif
+
+    return paths;
+}
+
+QMap<QString, QString> MayaDetector::readPluginPrefs(const QString &mayaVersion)
+{
+    QMap<QString, QString> pluginMap;
+
+#ifdef Q_OS_WIN
+    // pluginPrefs.mel 文件位置
+    QString prefsPath = QDir::homePath() + "/Documents/maya/" + mayaVersion + "/prefs/pluginPrefs.mel";
+
+    qDebug() << "读取 pluginPrefs.mel:" << prefsPath;
+
+    QFile file(prefsPath);
+    if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        QTextStream in(&file);
+        QString content = in.readAll();
+        file.close();
+
+        // 解析 pluginInfo 命令
+        // 示例: pluginInfo -edit -autoload true -pluginPath "C:/solidangle/mtoadeploy/2022/plug-ins" "mtoa";
+        QRegularExpression re(R"(pluginInfo.*?-pluginPath\s+"([^"]+)".*?"([^"]+)")");
+        QRegularExpressionMatchIterator it = re.globalMatch(content);
+
+        while (it.hasNext()) {
+            QRegularExpressionMatch match = it.next();
+            QString pluginPath = match.captured(1);
+            QString pluginName = match.captured(2);
+
+            qDebug() << "  从 pluginPrefs 找到:" << pluginName << "->" << pluginPath;
+            pluginMap[pluginName] = pluginPath;
+        }
+    }
+#endif
+
+    return pluginMap;
+}
+
+QStringList MayaDetector::readModulePaths(const QString &mayaVersion)
+{
+    QStringList paths;
+
+#ifdef Q_OS_WIN
+    // Maya 模块路径
+    QStringList moduleDirs;
+    moduleDirs << QDir::homePath() + "/Documents/maya/" + mayaVersion + "/modules";
+    moduleDirs << QDir::homePath() + "/Documents/maya/modules";
+    moduleDirs << "C:/Program Files/Common Files/Autodesk Shared/Modules/maya/" + mayaVersion;
+
+    for (const QString &moduleDir : moduleDirs) {
+        QDir dir(moduleDir);
+        if (!dir.exists()) continue;
+
+        qDebug() << "扫描模块目录:" << moduleDir;
+
+        // 读取 .mod 文件
+        QFileInfoList modFiles = dir.entryInfoList(QStringList() << "*.mod", QDir::Files);
+        for (const QFileInfo &modFile : modFiles) {
+            QFile file(modFile.absoluteFilePath());
+            if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+                QTextStream in(&file);
+                while (!in.atEnd()) {
+                    QString line = in.readLine().trimmed();
+
+                    // 跳过注释和空行
+                    if (line.isEmpty() || line.startsWith("#") || line.startsWith("+")) {
+                        continue;
+                    }
+
+                    // 解析模块定义
+                    // 示例: + MAYAVERSION:2022 mtoa 5.1.0 C:/solidangle/mtoadeploy/2022
+                    QStringList parts = line.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
+                    if (parts.size() >= 4) {
+                        QString modulePath = parts.last();
+                        if (QDir(modulePath).exists()) {
+                            // 添加 plug-ins 子目录
+                            QString pluginPath = modulePath + "/plug-ins";
+                            if (QDir(pluginPath).exists()) {
+                                qDebug() << "  从模块文件找到:" << pluginPath;
+                                paths.append(pluginPath);
+                            }
+                            // 也添加根目录（可能直接包含插件）
+                            paths.append(modulePath);
+                        }
+                    }
+                }
+                file.close();
+            }
+        }
+    }
+#endif
+
+    return paths;
+}
+
+QStringList MayaDetector::scanThirdPartyPluginRegistry(const QString &mayaVersion)
+{
+    QStringList paths;
+
+#ifdef Q_OS_WIN
+    // 扫描常见第三方插件的注册表路径
+    QStringList registryKeys;
+
+    // Arnold
+    registryKeys << QString("HKEY_LOCAL_MACHINE\\SOFTWARE\\Autodesk\\Arnold\\Maya%1").arg(mayaVersion);
+    registryKeys << QString("HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Autodesk\\Arnold\\Maya%1").arg(mayaVersion);
+    registryKeys << QString("HKEY_LOCAL_MACHINE\\SOFTWARE\\SolidAngle\\Arnold\\Maya%1").arg(mayaVersion);
+
+    // V-Ray
+    registryKeys << QString("HKEY_LOCAL_MACHINE\\SOFTWARE\\Chaos Group\\V-Ray\\Maya %1 for x64").arg(mayaVersion);
+    registryKeys << QString("HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Chaos Group\\V-Ray\\Maya %1 for x64").arg(mayaVersion);
+
+    // Redshift
+    registryKeys << QString("HKEY_LOCAL_MACHINE\\SOFTWARE\\Redshift\\Maya%1").arg(mayaVersion);
+    registryKeys << QString("HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Redshift\\Maya%1").arg(mayaVersion);
+
+    // Yeti
+    registryKeys << QString("HKEY_LOCAL_MACHINE\\SOFTWARE\\Peregrine Labs\\Yeti\\Maya%1").arg(mayaVersion);
+    registryKeys << QString("HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Peregrine Labs\\Yeti\\Maya%1").arg(mayaVersion);
+
+    qDebug() << "扫描第三方插件注册表 for Maya" << mayaVersion;
+
+    for (const QString &key : registryKeys) {
+        QSettings registry(key, QSettings::NativeFormat);
+
+        // 尝试多个可能的键名
+        QStringList valueNames;
+        valueNames << "InstallDir" << "INSTALL_PATH" << "Path" << "PluginPath" << "Location";
+
+        for (const QString &valueName : valueNames) {
+            QString installPath = registry.value(valueName).toString();
+            if (!installPath.isEmpty() && QDir(installPath).exists()) {
+                qDebug() << "  从注册表找到:" << key << "->" << installPath;
+                paths.append(installPath);
+
+                // 添加常见的插件子目录
+                QStringList subDirs;
+                subDirs << "/plug-ins" << "/bin/plug-ins" << "/maya" + mayaVersion + "/plug-ins";
+
+                for (const QString &subDir : subDirs) {
+                    QString pluginPath = installPath + subDir;
+                    if (QDir(pluginPath).exists()) {
+                        qDebug() << "    子目录:" << pluginPath;
+                        paths.append(pluginPath);
+                    }
+                }
+                break; // 找到一个就跳出
+            }
+        }
+    }
+#endif
+
+    return paths;
 }

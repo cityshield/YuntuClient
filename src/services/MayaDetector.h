@@ -185,4 +185,32 @@ private:
      * @return 渲染器信息
      */
     RendererInfo detectRedshift(const QString &mayaPath);
+
+    /**
+     * @brief 读取 Maya.env 文件获取插件路径
+     * @param mayaVersion Maya 版本号
+     * @return 插件路径列表
+     */
+    QStringList readMayaEnvPaths(const QString &mayaVersion);
+
+    /**
+     * @brief 读取 pluginPrefs.mel 获取已加载插件
+     * @param mayaVersion Maya 版本号
+     * @return 插件名称和路径的映射
+     */
+    QMap<QString, QString> readPluginPrefs(const QString &mayaVersion);
+
+    /**
+     * @brief 从模块路径文件读取插件路径
+     * @param mayaVersion Maya 版本号
+     * @return 模块路径列表
+     */
+    QStringList readModulePaths(const QString &mayaVersion);
+
+    /**
+     * @brief 扫描第三方插件的注册表安装信息
+     * @param mayaVersion Maya 版本号
+     * @return 插件路径列表
+     */
+    QStringList scanThirdPartyPluginRegistry(const QString &mayaVersion);
 };
