@@ -5,6 +5,7 @@
 
 #include "LoginWindow.h"
 #include "RegisterDialog.h"
+#include "MayaDetectionDialog.h"
 #include "../ThemeManager.h"
 #include "../../managers/AuthManager.h"
 #include "../../core/Logger.h"
@@ -28,6 +29,7 @@ LoginWindow::LoginWindow(QWidget *parent)
     , m_loginButton(nullptr)
     , m_registerButton(nullptr)
     , m_demoButton(nullptr)
+    , m_mayaDetectionButton(nullptr)
     , m_errorLabel(nullptr)
     , m_mainLayout(nullptr)
     , m_loginPanel(nullptr)
@@ -124,6 +126,16 @@ void LoginWindow::onDemoModeClicked()
 
     // 触发登录成功信号
     emit AuthManager::instance().loginSuccess(demoUser);
+}
+
+void LoginWindow::onMayaDetectionClicked()
+{
+    Application::instance().logger()->info("LoginWindow", QString::fromUtf8("打开 Maya 检测对话框"));
+
+    // 创建并显示 Maya 检测对话框
+    MayaDetectionDialog *dialog = new MayaDetectionDialog(this);
+    dialog->exec();
+    dialog->deleteLater();
 }
 
 void LoginWindow::onLoginSuccess()
@@ -233,6 +245,10 @@ void LoginWindow::initUI()
     m_demoButton = new FluentButton(QString::fromUtf8("演示模式（无需登录）"), m_loginPanel);
     m_demoButton->setStyleSheet("QPushButton { color: #0078D4; background-color: transparent; border: 1px solid #0078D4; }");
 
+    // Maya 检测按钮
+    m_mayaDetectionButton = new FluentButton(QString::fromUtf8("🔍 检测 Maya 环境"), m_loginPanel);
+    m_mayaDetectionButton->setStyleSheet("QPushButton { color: #16C60C; background-color: transparent; border: 1px solid #16C60C; }");
+
     // 添加到面板布局
     panelLayout->addWidget(m_logoLabel);
     panelLayout->addWidget(m_titleLabel);
@@ -247,6 +263,7 @@ void LoginWindow::initUI()
     panelLayout->addWidget(m_registerButton);
     panelLayout->addSpacing(10);
     panelLayout->addWidget(m_demoButton);
+    panelLayout->addWidget(m_mayaDetectionButton);
     panelLayout->addStretch();
 
     // 将登录面板居中
@@ -277,6 +294,10 @@ void LoginWindow::connectSignals()
     // 演示模式按钮
     connect(m_demoButton, &FluentButton::clicked,
             this, &LoginWindow::onDemoModeClicked);
+
+    // Maya 检测按钮
+    connect(m_mayaDetectionButton, &FluentButton::clicked,
+            this, &LoginWindow::onMayaDetectionClicked);
 
     // 忘记密码
     connect(m_forgotPasswordLabel, &QLabel::linkActivated,

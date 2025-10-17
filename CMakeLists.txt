@@ -68,6 +68,7 @@ set(SOURCES
     src/ui/views/MainWindow.cpp
     src/ui/views/TaskDetailDialog.cpp
     src/ui/views/CreateTaskDialog.cpp
+    src/ui/views/MayaDetectionDialog.cpp
 )
 
 # 头文件
@@ -114,6 +115,7 @@ set(HEADERS
     src/ui/views/MainWindow.h
     src/ui/views/TaskDetailDialog.h
     src/ui/views/CreateTaskDialog.h
+    src/ui/views/MayaDetectionDialog.h
 )
 
 # 资源文件（暂时没有）

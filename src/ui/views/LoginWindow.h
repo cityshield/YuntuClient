@@ -70,6 +70,11 @@ private slots:
      */
     void onDemoModeClicked();
 
+    /**
+     * @brief Maya 检测按钮点击
+     */
+    void onMayaDetectionClicked();
+
 private:
     /**
      * @brief 初始化 UI
@@ -112,6 +117,7 @@ private:
     FluentButton *m_loginButton;
     FluentButton *m_registerButton;
     FluentButton *m_demoButton;
+    FluentButton *m_mayaDetectionButton;
 
     // 错误提示
     QLabel *m_errorLabel;
