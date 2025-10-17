@@ -16,6 +16,7 @@
 #include <QMessageBox>
 #include <QScrollBar>
 #include <QApplication>
+#include <QTimer>
 
 MayaDetectionDialog::MayaDetectionDialog(QWidget *parent)
     : QDialog(parent)
