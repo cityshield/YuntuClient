@@ -7,6 +7,7 @@
 #include <QDebug>
 #include <QStringConverter>
 #include <QMap>
+#include <QDirIterator>
 
 #ifdef Q_OS_WIN
 #include <Windows.h>
@@ -302,8 +303,22 @@ QStringList MayaDetector::detectPlugins(const MayaSoftwareInfo &mayaInfo)
                 qDebug() << "  ✓" << formattedName << "(" << pluginPath << ")";
                 plugins << formattedName + " [已加载]";
             } else {
-                qDebug() << "  ?" << pluginName << "(路径:" << pluginPath << "- 文件未找到)";
+                // 如果所有方法都找不到，使用暴力搜索作为最后手段
+                qDebug() << "  ?" << pluginName << "未在常规路径找到，尝试暴力搜索...";
+
+#ifdef Q_OS_WIN
+                QStringList bruteSearchResults = bruteForceSearchPlugin(pluginName + ".mll", mayaInfo.version);
+                if (!bruteSearchResults.isEmpty()) {
+                    fullPluginPath = bruteSearchResults.first();  // 使用第一个匹配（优先级最高）
+                    qDebug() << "  ✓✓✓ 通过暴力搜索找到:" << fullPluginPath;
+                    plugins << formattedName + " [暴力搜索找到]";
+                } else {
+                    qDebug() << "  ✗ 暴力搜索也未找到" << pluginName;
+                    plugins << formattedName + " [已注册，但文件未找到]";
+                }
+#else
                 plugins << formattedName + " [已注册]";
+#endif
             }
         }
     } else {
@@ -1153,4 +1168,89 @@ QStringList MayaDetector::scanThirdPartyPluginRegistry(const QString &mayaVersio
 #endif
 
     return paths;
+}
+
+QStringList MayaDetector::bruteForceSearchPlugin(const QString &pluginFileName, const QString &mayaVersion)
+{
+    QStringList foundPaths;
+
+#ifdef Q_OS_WIN
+    qDebug() << "========== 开始暴力搜索插件:" << pluginFileName << "==========";
+
+    // 获取所有可用驱动器
+    QFileInfoList drives = QDir::drives();
+    qDebug() << "可用驱动器:" << drives.size() << "个";
+
+    for (const QFileInfo &drive : drives) {
+        QString driveLetter = drive.absolutePath();  // 例如 "C:/", "D:/"
+        qDebug() << "\n正在搜索驱动器:" << driveLetter;
+
+        // 定义常见的搜索路径（优先级从高到低）
+        QStringList searchPaths;
+
+        // 1. Program Files 下的 Autodesk 目录
+        searchPaths << driveLetter + "Program Files/Autodesk";
+        searchPaths << driveLetter + "Program Files (x86)/Autodesk";
+
+        // 2. Arnold 的标准安装位置
+        searchPaths << driveLetter + "Program Files/Autodesk/Arnold";
+        searchPaths << driveLetter + "solidangle";
+
+        // 3. Yeti 的标准安装位置
+        searchPaths << driveLetter + "Program Files/Peregrine Labs";
+        searchPaths << driveLetter + "Peregrine Labs";
+
+        // 4. V-Ray 位置
+        searchPaths << driveLetter + "Program Files/Chaos Group";
+
+        // 5. Redshift 位置
+        searchPaths << driveLetter + "ProgramData/Redshift";
+
+        // 6. 通用插件位置
+        searchPaths << driveLetter + "ProgramData/Autodesk";
+
+        // 递归搜索每个路径
+        for (const QString &basePath : searchPaths) {
+            QDir baseDir(basePath);
+            if (!baseDir.exists()) {
+                continue;
+            }
+
+            qDebug() << "  搜索基础路径:" << basePath;
+
+            // 使用 QDirIterator 递归搜索（限制深度避免太慢）
+            QDirIterator it(basePath,
+                           QStringList() << pluginFileName,
+                           QDir::Files,
+                           QDirIterator::Subdirectories);
+
+            while (it.hasNext()) {
+                QString foundPath = it.next();
+                qDebug() << "    ✓✓✓ 找到!" << foundPath;
+
+                // 检查是否与 Maya 版本匹配
+                if (foundPath.contains(mayaVersion, Qt::CaseInsensitive) ||
+                    foundPath.contains("maya" + mayaVersion, Qt::CaseInsensitive)) {
+                    qDebug() << "      [版本匹配] 添加到结果列表（优先级高）";
+                    foundPaths.prepend(foundPath);  // 版本匹配的放在前面
+                } else {
+                    qDebug() << "      添加到结果列表";
+                    foundPaths.append(foundPath);
+                }
+            }
+        }
+    }
+
+    if (foundPaths.isEmpty()) {
+        qDebug() << "========== 未找到" << pluginFileName << "==========\n";
+    } else {
+        qDebug() << "========== 找到" << foundPaths.size() << "个" << pluginFileName << "文件 ==========";
+        for (const QString &path : foundPaths) {
+            qDebug() << "  -" << path;
+        }
+        qDebug() << "==========\n";
+    }
+#endif
+
+    return foundPaths;
 }

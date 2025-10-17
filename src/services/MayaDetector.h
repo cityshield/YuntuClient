@@ -213,4 +213,12 @@ private:
      * @return 插件路径列表
      */
     QStringList scanThirdPartyPluginRegistry(const QString &mayaVersion);
+
+    /**
+     * @brief 暴力搜索特定插件文件（全盘扫描）
+     * @param pluginFileName 插件文件名 (如 "mtoa.mll", "pgYetiMaya.mll")
+     * @param mayaVersion Maya 版本号（用于优先搜索）
+     * @return 找到的插件完整路径列表
+     */
+    QStringList bruteForceSearchPlugin(const QString &pluginFileName, const QString &mayaVersion);
 };
