@@ -722,28 +722,73 @@ QStringList MayaDetector::scanThirdPartyPluginRegistry(const QString &mayaVersio
     QStringList baseKeys;
 
     // Arnold 可能的注册表位置
+    // 机器级注册表
     baseKeys << "HKEY_LOCAL_MACHINE\\SOFTWARE\\Autodesk\\Arnold";
     baseKeys << "HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Autodesk\\Arnold";
     baseKeys << "HKEY_LOCAL_MACHINE\\SOFTWARE\\SolidAngle\\Arnold";
+    // 用户级注册表 (关键!)
+    baseKeys << "HKEY_CURRENT_USER\\Software\\MtoA" + mayaVersion;  // 直接匹配版本
+    baseKeys << "HKEY_CURRENT_USER\\Software\\Autodesk\\Arnold";
+    baseKeys << "HKEY_CURRENT_USER\\Software\\SolidAngle\\Arnold";
 
     // V-Ray 可能的注册表位置
     baseKeys << "HKEY_LOCAL_MACHINE\\SOFTWARE\\Chaos Group\\V-Ray";
     baseKeys << "HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Chaos Group\\V-Ray";
+    baseKeys << "HKEY_CURRENT_USER\\Software\\Chaos Group\\V-Ray";
 
     // Redshift 可能的注册表位置
     baseKeys << "HKEY_LOCAL_MACHINE\\SOFTWARE\\Redshift";
     baseKeys << "HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Redshift";
+    baseKeys << "HKEY_CURRENT_USER\\Software\\Redshift";
 
     // Yeti 可能的注册表位置
     baseKeys << "HKEY_LOCAL_MACHINE\\SOFTWARE\\Peregrine Labs\\Yeti";
     baseKeys << "HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Peregrine Labs\\Yeti";
+    baseKeys << "HKEY_CURRENT_USER\\Software\\Peregrine Labs\\Yeti";
 
     // 扫描每个基础路径下的子键
     for (const QString &baseKey : baseKeys) {
         QSettings baseRegistry(baseKey, QSettings::NativeFormat);
+        QStringList allKeys = baseRegistry.allKeys();
         QStringList subKeys = baseRegistry.childGroups();
 
-        qDebug() << "  扫描基础键:" << baseKey << "子键:" << subKeys;
+        qDebug() << "  扫描基础键:" << baseKey;
+        qDebug() << "    所有键:" << allKeys;
+        qDebug() << "    子键:" << subKeys;
+
+        // 先尝试读取基础键本身的值 (针对 HKEY_CURRENT_USER\Software\MtoA2022 这种情况)
+        QStringList valueNames;
+        valueNames << "INSTALL_DIR" << "InstallDir" << "INSTALL_PATH" << "Path"
+                   << "PluginPath" << "Location" << "MTOA_INSTALL_DIR" << "";
+
+        for (const QString &valueName : valueNames) {
+            QString installPath = baseRegistry.value(valueName).toString();
+            if (!installPath.isEmpty()) {
+                qDebug() << "    读取到键值 [" << valueName << "]:" << installPath;
+
+                if (QDir(installPath).exists()) {
+                    qDebug() << "      路径存在，添加:" << installPath;
+                    paths.append(installPath);
+
+                    // 添加常见的插件子目录
+                    QStringList subDirs;
+                    subDirs << "/plug-ins"
+                            << "/bin/plug-ins"
+                            << "/maya" + mayaVersion + "/plug-ins"
+                            << "/maya" + mayaVersion
+                            << "/scripts"
+                            << "";
+
+                    for (const QString &subDir : subDirs) {
+                        QString pluginPath = installPath + subDir;
+                        if (QDir(pluginPath).exists()) {
+                            qDebug() << "        子目录存在:" << pluginPath;
+                            paths.append(pluginPath);
+                        }
+                    }
+                }
+            }
+        }
 
         // 检查是否有与当前 Maya 版本匹配的子键
         for (const QString &subKey : subKeys) {
@@ -757,14 +802,10 @@ QStringList MayaDetector::scanThirdPartyPluginRegistry(const QString &mayaVersio
 
                 QSettings registry(fullKey, QSettings::NativeFormat);
 
-                // 尝试多个可能的键名
-                QStringList valueNames;
-                valueNames << "InstallDir" << "INSTALL_PATH" << "Path" << "PluginPath" << "Location" << "";
-
                 for (const QString &valueName : valueNames) {
                     QString installPath = registry.value(valueName).toString();
                     if (!installPath.isEmpty() && QDir(installPath).exists()) {
-                        qDebug() << "      从注册表找到路径:" << installPath;
+                        qDebug() << "      从子键找到路径:" << installPath;
                         paths.append(installPath);
 
                         // 添加常见的插件子目录
@@ -783,33 +824,6 @@ QStringList MayaDetector::scanThirdPartyPluginRegistry(const QString &mayaVersio
                             }
                         }
                         break;
-                    }
-                }
-            }
-        }
-
-        // 也检查基础键本身的默认值
-        QString installPath = baseRegistry.value("").toString();
-        if (installPath.isEmpty()) {
-            installPath = baseRegistry.value("InstallDir").toString();
-        }
-        if (!installPath.isEmpty() && QDir(installPath).exists()) {
-            qDebug() << "  从基础键找到路径:" << installPath;
-
-            // 尝试在该路径下找到对应版本的子目录
-            QDir installDir(installPath);
-            QStringList versionDirs;
-            versionDirs << "maya" + mayaVersion;
-            versionDirs << mayaVersion;
-
-            for (const QString &versionDir : versionDirs) {
-                QString versionPath = installPath + "/" + versionDir;
-                if (QDir(versionPath).exists()) {
-                    paths.append(versionPath);
-                    QString pluginPath = versionPath + "/plug-ins";
-                    if (QDir(pluginPath).exists()) {
-                        qDebug() << "    版本子目录:" << pluginPath;
-                        paths.append(pluginPath);
                     }
                 }
             }
