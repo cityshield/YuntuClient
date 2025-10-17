@@ -35,6 +35,11 @@ private:
      */
     void uploadLogsToOSS();
 
+    /**
+     * @brief 从 .env 文件加载 OSS 配置
+     */
+    void loadOssConfigFromEnv();
+
     std::unique_ptr<Config> m_config;
     std::unique_ptr<Logger> m_logger;
 };
