@@ -759,10 +759,36 @@ QMap<QString, QString> MayaDetector::readPluginPrefs(const QString &mayaVersion)
     QMap<QString, QString> pluginMap;
 
 #ifdef Q_OS_WIN
-    // pluginPrefs.mel 文件位置
-    QString prefsPath = QDir::homePath() + "/Documents/maya/" + mayaVersion + "/prefs/pluginPrefs.mel";
+    // pluginPrefs.mel 文件可能的位置
+    QStringList possiblePaths;
 
-    qDebug() << "读取 pluginPrefs.mel:" << prefsPath;
+    // 标准路径
+    possiblePaths << QDir::homePath() + "/Documents/maya/" + mayaVersion + "/prefs/pluginPrefs.mel";
+
+    // 备用路径（某些系统配置）
+    possiblePaths << QDir::homePath() + "/My Documents/maya/" + mayaVersion + "/prefs/pluginPrefs.mel";
+    possiblePaths << "C:/Users/" + qgetenv("USERNAME") + "/Documents/maya/" + mayaVersion + "/prefs/pluginPrefs.mel";
+
+    qDebug() << "尝试查找 pluginPrefs.mel for Maya" << mayaVersion;
+    qDebug() << "  用户主目录:" << QDir::homePath();
+
+    QString prefsPath;
+    for (const QString &path : possiblePaths) {
+        qDebug() << "  检查路径:" << path << "存在:" << QFile::exists(path);
+        if (QFile::exists(path)) {
+            prefsPath = path;
+            qDebug() << "    ✓ 找到 pluginPrefs.mel:" << prefsPath;
+            break;
+        }
+    }
+
+    if (prefsPath.isEmpty()) {
+        qDebug() << "  ✗ 未找到 pluginPrefs.mel 文件";
+        qDebug() << "  提示：请检查以下目录:";
+        qDebug() << "    1." << QDir::homePath() + "/Documents/maya/" + mayaVersion + "/prefs/";
+        qDebug() << "    2. 或者 Maya 是否曾经运行过（pluginPrefs.mel 在首次运行 Maya 时创建）";
+        return pluginMap;
+    }
 
     QFile file(prefsPath);
     if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
@@ -770,11 +796,14 @@ QMap<QString, QString> MayaDetector::readPluginPrefs(const QString &mayaVersion)
         QString content = in.readAll();
         file.close();
 
+        qDebug() << "  pluginPrefs.mel 文件大小:" << content.size() << "字节";
+
         // 解析 pluginInfo 命令
         // 示例: pluginInfo -edit -autoload true -pluginPath "C:/solidangle/mtoadeploy/2022/plug-ins" "mtoa";
         QRegularExpression re("pluginInfo.*?-pluginPath\\s+\"([^\"]+)\".*?\"([^\"]+)\"");
         QRegularExpressionMatchIterator it = re.globalMatch(content);
 
+        int count = 0;
         while (it.hasNext()) {
             QRegularExpressionMatch match = it.next();
             QString pluginPath = match.captured(1);
@@ -782,7 +811,13 @@ QMap<QString, QString> MayaDetector::readPluginPrefs(const QString &mayaVersion)
 
             qDebug() << "  从 pluginPrefs 找到:" << pluginName << "->" << pluginPath;
             pluginMap[pluginName] = pluginPath;
+            count++;
         }
+
+        qDebug() << "  共解析到" << count << "个插件配置";
+    } else {
+        qDebug() << "  ✗ 无法打开文件:" << prefsPath;
+        qDebug() << "  错误:" << file.errorString();
     }
 #endif
 
