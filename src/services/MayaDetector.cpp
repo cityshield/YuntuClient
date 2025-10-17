@@ -104,23 +104,96 @@ QVector<RendererInfo> MayaDetector::detectRenderers(const MayaSoftwareInfo &maya
 {
     QVector<RendererInfo> renderers;
 
-    // 检测 Arnold (Maya 2017+ 内置)
-    RendererInfo arnold = detectArnold(mayaInfo.installPath);
-    if (!arnold.name.isEmpty()) {
+    qDebug() << "========== 开始检测渲染器 ==========";
+
+#ifdef Q_OS_WIN
+    // 优先从 pluginPrefs.mel 读取渲染器插件信息
+    QMap<QString, QString> pluginPrefsMap = readPluginPrefs(mayaInfo.version);
+
+    // 检查 Arnold (mtoa)
+    if (pluginPrefsMap.contains("mtoa")) {
+        RendererInfo arnold;
+        arnold.name = "Arnold";
+        arnold.pluginPath = pluginPrefsMap["mtoa"];
+        arnold.isLoaded = true;
+        arnold.version = "Unknown";
+
+        // 尝试找到实际的 .mll 文件
+        QString mllPath = arnold.pluginPath + "/mtoa.mll";
+        if (QFile::exists(mllPath)) {
+            arnold.pluginPath = mllPath;
+            qDebug() << "  ✓ Arnold (从 Plug-in Manager):" << mllPath;
+        } else {
+            qDebug() << "  ✓ Arnold (从 Plug-in Manager，路径:" << arnold.pluginPath << ")";
+        }
+
         renderers.append(arnold);
     }
 
-    // 检测 V-Ray
-    RendererInfo vray = detectVRay(mayaInfo.installPath);
-    if (!vray.name.isEmpty()) {
-        renderers.append(vray);
+    // 检查 V-Ray
+    for (const QString &pluginName : pluginPrefsMap.keys()) {
+        if (pluginName.contains("vray", Qt::CaseInsensitive)) {
+            RendererInfo vray;
+            vray.name = "V-Ray";
+            vray.pluginPath = pluginPrefsMap[pluginName];
+            vray.isLoaded = true;
+            vray.version = "Unknown";
+
+            qDebug() << "  ✓ V-Ray (从 Plug-in Manager):" << vray.pluginPath;
+            renderers.append(vray);
+            break;
+        }
     }
 
-    // 检测 Redshift
-    RendererInfo redshift = detectRedshift(mayaInfo.installPath);
-    if (!redshift.name.isEmpty()) {
-        renderers.append(redshift);
+    // 检查 Redshift
+    for (const QString &pluginName : pluginPrefsMap.keys()) {
+        if (pluginName.contains("redshift", Qt::CaseInsensitive)) {
+            RendererInfo redshift;
+            redshift.name = "Redshift";
+            redshift.pluginPath = pluginPrefsMap[pluginName];
+            redshift.isLoaded = true;
+            redshift.version = "Unknown";
+
+            qDebug() << "  ✓ Redshift (从 Plug-in Manager):" << redshift.pluginPath;
+            renderers.append(redshift);
+            break;
+        }
     }
+#endif
+
+    // 备用检测方法：在 Maya 安装目录中查找（如果 pluginPrefs.mel 中没有找到）
+    bool hasArnold = false, hasVRay = false, hasRedshift = false;
+    for (const RendererInfo &r : renderers) {
+        if (r.name == "Arnold") hasArnold = true;
+        if (r.name == "V-Ray") hasVRay = true;
+        if (r.name == "Redshift") hasRedshift = true;
+    }
+
+    if (!hasArnold) {
+        RendererInfo arnold = detectArnold(mayaInfo.installPath);
+        if (!arnold.name.isEmpty()) {
+            qDebug() << "  ✓ Arnold (从 Maya 目录扫描):" << arnold.pluginPath;
+            renderers.append(arnold);
+        }
+    }
+
+    if (!hasVRay) {
+        RendererInfo vray = detectVRay(mayaInfo.installPath);
+        if (!vray.name.isEmpty()) {
+            qDebug() << "  ✓ V-Ray (从 Maya 目录扫描):" << vray.pluginPath;
+            renderers.append(vray);
+        }
+    }
+
+    if (!hasRedshift) {
+        RendererInfo redshift = detectRedshift(mayaInfo.installPath);
+        if (!redshift.name.isEmpty()) {
+            qDebug() << "  ✓ Redshift (从 Maya 目录扫描):" << redshift.pluginPath;
+            renderers.append(redshift);
+        }
+    }
+
+    qDebug() << "========== 渲染器检测完成，共找到" << renderers.size() << "个 ==========\n";
 
     return renderers;
 }
@@ -129,44 +202,95 @@ QStringList MayaDetector::detectPlugins(const MayaSoftwareInfo &mayaInfo)
 {
     QStringList plugins;
 
-    // 1. Maya 内置插件目录
+#ifdef Q_OS_WIN
+    // 优先策略：直接从 pluginPrefs.mel 读取已加载的插件（Maya Plug-in Manager 信息）
+    qDebug() << "========== 开始从 Plug-in Manager 读取插件 ==========";
+    QMap<QString, QString> pluginPrefsMap = readPluginPrefs(mayaInfo.version);
+
+    if (!pluginPrefsMap.isEmpty()) {
+        qDebug() << "从 pluginPrefs.mel 找到" << pluginPrefsMap.size() << "个已注册插件";
+
+        for (auto it = pluginPrefsMap.constBegin(); it != pluginPrefsMap.constEnd(); ++it) {
+            QString pluginName = it.key();
+            QString pluginPath = it.value();
+
+            // 检查插件文件是否存在
+            QString fullPluginPath;
+
+            // 尝试直接路径
+            if (QFile::exists(pluginPath + "/" + pluginName + ".mll")) {
+                fullPluginPath = pluginPath + "/" + pluginName + ".mll";
+            } else if (QFile::exists(pluginPath + "/" + pluginName + ".py")) {
+                fullPluginPath = pluginPath + "/" + pluginName + ".py";
+            } else if (QFile::exists(pluginPath + "/" + pluginName + ".bundle")) {
+                fullPluginPath = pluginPath + "/" + pluginName + ".bundle";
+            }
+
+            // 格式化插件名称
+            QString formattedName = pluginName;
+            if (pluginName.contains("mtoa", Qt::CaseInsensitive)) {
+                formattedName = "Arnold (mtoa)";
+            } else if (pluginName.contains("vray", Qt::CaseInsensitive)) {
+                formattedName = "V-Ray";
+            } else if (pluginName.contains("redshift", Qt::CaseInsensitive)) {
+                formattedName = "Redshift";
+            } else if (pluginName.contains("miarmy", Qt::CaseInsensitive)) {
+                formattedName = "Miarmy (群集动画)";
+            } else if (pluginName.contains("yeti", Qt::CaseInsensitive)) {
+                formattedName = "Yeti (毛发系统)";
+            } else if (pluginName.contains("xgen", Qt::CaseInsensitive)) {
+                formattedName = "XGen (毛发)";
+            } else if (pluginName.contains("bifrost", Qt::CaseInsensitive)) {
+                formattedName = "Bifrost (流体)";
+            } else if (pluginName.contains("mash", Qt::CaseInsensitive)) {
+                formattedName = "MASH (运动图形)";
+            }
+
+            if (!fullPluginPath.isEmpty()) {
+                qDebug() << "  ✓" << formattedName << "(" << pluginPath << ")";
+                plugins << formattedName + " [已加载]";
+            } else {
+                qDebug() << "  ?" << pluginName << "(路径:" << pluginPath << "- 文件未找到)";
+                plugins << formattedName + " [已注册]";
+            }
+        }
+    } else {
+        qDebug() << "pluginPrefs.mel 为空或不存在，使用备用检测方法";
+    }
+
+    qDebug() << "========== Plug-in Manager 检测完成 ==========\n";
+#endif
+
+    // 备用策略：扫描插件目录（用于未在 pluginPrefs.mel 中注册的插件）
     QStringList pluginDirs;
     pluginDirs << mayaInfo.installPath + "/plug-ins";
     pluginDirs << mayaInfo.installPath + "/bin/plug-ins";
 
 #ifdef Q_OS_WIN
-    // 2. Windows 用户插件目录
     QString userPlugins = QDir::homePath() + "/Documents/maya/" + mayaInfo.version + "/plug-ins";
     pluginDirs << userPlugins;
 
-    // 3. 从 Maya.env 读取插件路径
     QStringList envPaths = readMayaEnvPaths(mayaInfo.version);
     pluginDirs.append(envPaths);
 
-    // 4. 从模块路径文件读取
     QStringList modulePaths = readModulePaths(mayaInfo.version);
     pluginDirs.append(modulePaths);
 
-    // 5. 扫描第三方插件注册表
     QStringList registryPaths = scanThirdPartyPluginRegistry(mayaInfo.version);
     pluginDirs.append(registryPaths);
 
 #elif defined(Q_OS_MAC)
-    // macOS 用户插件目录
     QString userPlugins = QDir::homePath() + "/Library/Preferences/Autodesk/maya/" + mayaInfo.version + "/plug-ins";
     pluginDirs << userPlugins;
 #endif
 
-    // 去重
     pluginDirs.removeDuplicates();
-    qDebug() << "检测插件目录:" << pluginDirs;
+    qDebug() << "扫描额外插件目录:" << pluginDirs;
 
     for (const QString &dir : pluginDirs) {
         QDir pluginDir(dir);
-        qDebug() << "扫描目录:" << dir << "存在:" << pluginDir.exists();
         if (!pluginDir.exists()) continue;
 
-        // 扫描插件文件
         QStringList filters;
 #ifdef Q_OS_WIN
         filters << "*.mll" << "*.py";
@@ -177,25 +301,36 @@ QStringList MayaDetector::detectPlugins(const MayaSoftwareInfo &mayaInfo)
 #endif
 
         QFileInfoList files = pluginDir.entryInfoList(filters, QDir::Files);
-        qDebug() << "  找到" << files.size() << "个文件";
         for (const QFileInfo &file : files) {
             QString pluginName = file.baseName();
-            qDebug() << "    插件:" << pluginName;
 
-            // 识别常见插件
-            if (pluginName.contains("miarmy", Qt::CaseInsensitive)) {
-                plugins << "Miarmy (群集动画)";
-            } else if (pluginName.contains("yeti", Qt::CaseInsensitive)) {
-                plugins << "Yeti (毛发系统)";
-            } else if (pluginName.contains("xgen", Qt::CaseInsensitive)) {
-                plugins << "XGen (毛发)";
-            } else if (pluginName.contains("bifrost", Qt::CaseInsensitive)) {
-                plugins << "Bifrost (流体)";
-            } else if (pluginName.contains("mash", Qt::CaseInsensitive)) {
-                plugins << "MASH (运动图形)";
-            } else {
-                // 其他插件
-                plugins << pluginName;
+            // 跳过已经从 pluginPrefs 添加的
+            bool alreadyAdded = false;
+            for (const QString &existing : plugins) {
+                if (existing.contains(pluginName, Qt::CaseInsensitive)) {
+                    alreadyAdded = true;
+                    break;
+                }
+            }
+
+            if (!alreadyAdded) {
+                QString formattedName = pluginName;
+                if (pluginName.contains("miarmy", Qt::CaseInsensitive)) {
+                    formattedName = "Miarmy (群集动画)";
+                } else if (pluginName.contains("yeti", Qt::CaseInsensitive)) {
+                    formattedName = "Yeti (毛发系统)";
+                } else if (pluginName.contains("xgen", Qt::CaseInsensitive)) {
+                    formattedName = "XGen (毛发)";
+                } else if (pluginName.contains("bifrost", Qt::CaseInsensitive)) {
+                    formattedName = "Bifrost (流体)";
+                } else if (pluginName.contains("mash", Qt::CaseInsensitive)) {
+                    formattedName = "MASH (运动图形)";
+                } else if (pluginName.contains("mtoa", Qt::CaseInsensitive)) {
+                    formattedName = "Arnold (mtoa)";
+                }
+
+                plugins << formattedName + " [扫描发现]";
+                qDebug() << "  发现额外插件:" << formattedName;
             }
         }
     }
