@@ -164,3 +164,48 @@ void Config::setCacheMaxSize(qint64 size)
     m_settings->setValue("general/cacheMaxSize", size);
     emit configChanged();
 }
+
+// OSS配置
+QString Config::ossAccessKey() const
+{
+    return m_settings->value("oss/accessKey").toString();
+}
+
+void Config::setOssAccessKey(const QString &key)
+{
+    m_settings->setValue("oss/accessKey", key);
+    emit configChanged();
+}
+
+QString Config::ossSecretKey() const
+{
+    return m_settings->value("oss/secretKey").toString();
+}
+
+void Config::setOssSecretKey(const QString &key)
+{
+    m_settings->setValue("oss/secretKey", key);
+    emit configChanged();
+}
+
+QString Config::ossBucket() const
+{
+    return m_settings->value("oss/bucket").toString();
+}
+
+void Config::setOssBucket(const QString &bucket)
+{
+    m_settings->setValue("oss/bucket", bucket);
+    emit configChanged();
+}
+
+QString Config::ossEndpoint() const
+{
+    return m_settings->value("oss/endpoint").toString();
+}
+
+void Config::setOssEndpoint(const QString &endpoint)
+{
+    m_settings->setValue("oss/endpoint", endpoint);
+    emit configChanged();
+}

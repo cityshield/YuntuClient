@@ -62,6 +62,19 @@ public:
     qint64 cacheMaxSize() const; // 字节
     void setCacheMaxSize(qint64 size);
 
+    // OSS配置
+    QString ossAccessKey() const;
+    void setOssAccessKey(const QString &key);
+
+    QString ossSecretKey() const;
+    void setOssSecretKey(const QString &key);
+
+    QString ossBucket() const;
+    void setOssBucket(const QString &bucket);
+
+    QString ossEndpoint() const;
+    void setOssEndpoint(const QString &endpoint);
+
 signals:
     void configChanged();
 
