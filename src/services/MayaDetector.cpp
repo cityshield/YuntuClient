@@ -239,9 +239,31 @@ QStringList MayaDetector::detectPlugins(const MayaSoftwareInfo &mayaInfo)
                 // 用户插件目录
                 searchPaths << QDir::homePath() + "/Documents/maya/" + mayaInfo.version + "/plug-ins";
 
-                // 第三方插件常见位置
-                searchPaths << "C:/Program Files/Autodesk/Arnold/maya" + mayaInfo.version + "/plug-ins";
-                searchPaths << "C:/solidangle/mtoadeploy/" + mayaInfo.version + "/plug-ins";
+                // 获取所有可用驱动器并搜索第三方插件
+#ifdef Q_OS_WIN
+                QFileInfoList drives = QDir::drives();
+                for (const QFileInfo &drive : drives) {
+                    QString driveLetter = drive.absolutePath();  // 例如 "C:/", "D:/"
+
+                    // Arnold 可能的安装位置
+                    searchPaths << driveLetter + "Program Files/Autodesk/Arnold/maya" + mayaInfo.version + "/plug-ins";
+                    searchPaths << driveLetter + "Program Files (x86)/Autodesk/Arnold/maya" + mayaInfo.version + "/plug-ins";
+                    searchPaths << driveLetter + "solidangle/mtoadeploy/" + mayaInfo.version + "/plug-ins";
+
+                    // V-Ray 可能的安装位置
+                    searchPaths << driveLetter + "Program Files/Chaos Group/V-Ray/Maya " + mayaInfo.version + "/plug-ins";
+
+                    // Redshift 可能的安装位置
+                    searchPaths << driveLetter + "ProgramData/Redshift/Plugins/Maya/" + mayaInfo.version;
+
+                    // Yeti 可能的安装位置
+                    searchPaths << driveLetter + "Program Files/Peregrine Labs/Yeti-v" + "*" + "/plug-ins";
+                }
+#else
+                // 非 Windows 系统，保留原来的硬编码路径
+                searchPaths << "/usr/autodesk/Arnold/maya" + mayaInfo.version + "/plug-ins";
+                searchPaths << "/opt/solidangle/mtoa/" + mayaInfo.version;
+#endif
 
                 for (const QString &searchPath : searchPaths) {
                     if (QFile::exists(searchPath + "/" + pluginName + ".mll")) {
@@ -538,19 +560,29 @@ QStringList MayaDetector::scanCommonInstallPaths()
     QStringList paths;
 
 #ifdef Q_OS_WIN
-    // Windows 常用路径
-    QStringList basePaths;
-    basePaths << "C:/Program Files/Autodesk";
-    basePaths << "C:/Program Files (x86)/Autodesk";
+    // 扫描所有驱动器的常用路径
+    QFileInfoList drives = QDir::drives();
+    qDebug() << "检测到的驱动器:" << drives;
 
-    for (const QString &basePath : basePaths) {
-        QDir dir(basePath);
-        if (!dir.exists()) continue;
+    for (const QFileInfo &drive : drives) {
+        QString driveLetter = drive.absolutePath();  // 例如 "C:/", "D:/"
 
-        QStringList subdirs = dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
-        for (const QString &subdir : subdirs) {
-            if (subdir.startsWith("Maya", Qt::CaseInsensitive)) {
-                paths.append(dir.absoluteFilePath(subdir));
+        QStringList basePaths;
+        basePaths << driveLetter + "Program Files/Autodesk";
+        basePaths << driveLetter + "Program Files (x86)/Autodesk";
+        basePaths << driveLetter + "Autodesk";  // 有些用户可能直接装在根目录
+
+        for (const QString &basePath : basePaths) {
+            QDir dir(basePath);
+            if (!dir.exists()) continue;
+
+            QStringList subdirs = dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+            for (const QString &subdir : subdirs) {
+                if (subdir.startsWith("Maya", Qt::CaseInsensitive)) {
+                    QString mayaPath = dir.absoluteFilePath(subdir);
+                    qDebug() << "  在" << driveLetter << "发现 Maya:" << mayaPath;
+                    paths.append(mayaPath);
+                }
             }
         }
     }
