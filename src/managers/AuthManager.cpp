@@ -62,6 +62,9 @@ void AuthManager::initialize()
 
 void AuthManager::login(const QString& username, const QString& password, bool remember)
 {
+    qDebug() << "========== 开始登录 ==========";
+    qDebug() << "用户名:" << username;
+    qDebug() << "记住我:" << remember;
     Application::instance().logger()->info("AuthManager", QString::fromUtf8("尝试登录: %1").arg(username));
 
     m_rememberMe = remember;
@@ -97,10 +100,13 @@ void AuthManager::login(const QString& username, const QString& password, bool r
             // 启动 Token 刷新定时器
             startTokenRefreshTimer();
 
+            qDebug() << "✓ 登录成功，用户:" << user->username();
+            qDebug() << "✓ Access Token:" << accessToken.left(20) + "...";
             Application::instance().logger()->info("AuthManager", QString::fromUtf8("登录成功: %1").arg(user->username()));
             emit loginSuccess(m_currentUser);
         },
         [this](int statusCode, const QString& error) {
+            qWarning() << "✗ 登录失败，状态码:" << statusCode << "错误:" << error;
             Application::instance().logger()->error("AuthManager", QString::fromUtf8("登录失败: %1").arg(error));
             emit loginFailed(error);
         }

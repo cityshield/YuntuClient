@@ -141,6 +141,9 @@ void TaskManager::refreshTaskList()
 
 void TaskManager::createTask(const QString& taskName, const QString& sceneFile, RenderConfig* config)
 {
+    qDebug() << "========== 创建新任务 ==========";
+    qDebug() << "任务名称:" << taskName;
+    qDebug() << "场景文件:" << sceneFile;
     Application::instance().logger()->info("TaskManager", QString::fromUtf8("创建新任务: %1").arg(taskName));
 
     // 创建任务对象

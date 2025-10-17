@@ -71,6 +71,8 @@ int main(int argc, char *argv[])
     logFile = new QFile(logFilePath);
     if (logFile->open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
         logStream = new QTextStream(logFile);
+        // 设置 UTF-8 编码，确保中文正常显示
+        logStream->setEncoding(QStringConverter::Utf8);
         qInstallMessageHandler(customMessageHandler);
     }
 
