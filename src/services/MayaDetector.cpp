@@ -137,14 +137,21 @@ QStringList MayaDetector::detectPlugins(const MayaSoftwareInfo &mayaInfo)
     // Windows 用户插件目录
     QString userPlugins = QDir::homePath() + "/Documents/maya/" + mayaInfo.version + "/plug-ins";
     pluginDirs << userPlugins;
+
+    // Windows 用户脚本目录（可能有Python插件）
+    QString userScripts = QDir::homePath() + "/Documents/maya/" + mayaInfo.version + "/scripts";
+    pluginDirs << userScripts;
 #elif defined(Q_OS_MAC)
     // macOS 用户插件目录
     QString userPlugins = QDir::homePath() + "/Library/Preferences/Autodesk/maya/" + mayaInfo.version + "/plug-ins";
     pluginDirs << userPlugins;
 #endif
 
+    qDebug() << "检测插件目录:" << pluginDirs;
+
     for (const QString &dir : pluginDirs) {
         QDir pluginDir(dir);
+        qDebug() << "扫描目录:" << dir << "存在:" << pluginDir.exists();
         if (!pluginDir.exists()) continue;
 
         // 扫描插件文件
@@ -158,8 +165,10 @@ QStringList MayaDetector::detectPlugins(const MayaSoftwareInfo &mayaInfo)
 #endif
 
         QFileInfoList files = pluginDir.entryInfoList(filters, QDir::Files);
+        qDebug() << "  找到" << files.size() << "个文件";
         for (const QFileInfo &file : files) {
             QString pluginName = file.baseName();
+            qDebug() << "    插件:" << pluginName;
 
             // 识别常见插件
             if (pluginName.contains("miarmy", Qt::CaseInsensitive)) {
@@ -458,24 +467,28 @@ RendererInfo MayaDetector::detectArnold(const QString &mayaPath)
 {
     RendererInfo info;
 
-    // Arnold (mtoa) 通常在 plug-ins 目录
-    QString arnoldPlugin;
+    // Arnold (mtoa) 可能在多个位置
+    QStringList possiblePaths;
 
 #ifdef Q_OS_WIN
-    arnoldPlugin = mayaPath + "/plug-ins/mtoa.mll";
+    possiblePaths << mayaPath + "/bin/plug-ins/mtoa.mll";
+    possiblePaths << mayaPath + "/plug-ins/mtoa.mll";
 #elif defined(Q_OS_MAC)
-    arnoldPlugin = mayaPath + "/plug-ins/mtoa.bundle";
+    possiblePaths << mayaPath + "/Maya.app/Contents/plug-ins/mtoa.bundle";
+    possiblePaths << mayaPath + "/plug-ins/mtoa.bundle";
 #elif defined(Q_OS_LINUX)
-    arnoldPlugin = mayaPath + "/plug-ins/mtoa.so";
+    possiblePaths << mayaPath + "/plug-ins/mtoa.so";
 #endif
 
-    if (QFile::exists(arnoldPlugin)) {
-        info.name = "Arnold";
-        info.pluginPath = arnoldPlugin;
-        info.isLoaded = true;
-
-        // TODO: 从插件文件读取版本号
-        info.version = "Unknown";
+    for (const QString &arnoldPlugin : possiblePaths) {
+        qDebug() << "检测 Arnold:" << arnoldPlugin << "存在:" << QFile::exists(arnoldPlugin);
+        if (QFile::exists(arnoldPlugin)) {
+            info.name = "Arnold";
+            info.pluginPath = arnoldPlugin;
+            info.isLoaded = true;
+            info.version = "Unknown";
+            break;
+        }
     }
 
     return info;
@@ -485,22 +498,28 @@ RendererInfo MayaDetector::detectVRay(const QString &mayaPath)
 {
     RendererInfo info;
 
-    // V-Ray 插件路径
-    QString vrayPlugin;
+    // V-Ray 可能在多个位置
+    QStringList possiblePaths;
 
 #ifdef Q_OS_WIN
-    vrayPlugin = mayaPath + "/plug-ins/vrayformaya.mll";
+    possiblePaths << mayaPath + "/bin/plug-ins/vrayformaya.mll";
+    possiblePaths << mayaPath + "/plug-ins/vrayformaya.mll";
 #elif defined(Q_OS_MAC)
-    vrayPlugin = mayaPath + "/plug-ins/vrayformaya.bundle";
+    possiblePaths << mayaPath + "/Maya.app/Contents/plug-ins/vrayformaya.bundle";
+    possiblePaths << mayaPath + "/plug-ins/vrayformaya.bundle";
 #elif defined(Q_OS_LINUX)
-    vrayPlugin = mayaPath + "/plug-ins/vrayformaya.so";
+    possiblePaths << mayaPath + "/plug-ins/vrayformaya.so";
 #endif
 
-    if (QFile::exists(vrayPlugin)) {
-        info.name = "V-Ray";
-        info.pluginPath = vrayPlugin;
-        info.isLoaded = true;
-        info.version = "Unknown";
+    for (const QString &vrayPlugin : possiblePaths) {
+        qDebug() << "检测 V-Ray:" << vrayPlugin << "存在:" << QFile::exists(vrayPlugin);
+        if (QFile::exists(vrayPlugin)) {
+            info.name = "V-Ray";
+            info.pluginPath = vrayPlugin;
+            info.isLoaded = true;
+            info.version = "Unknown";
+            break;
+        }
     }
 
     return info;
@@ -510,22 +529,28 @@ RendererInfo MayaDetector::detectRedshift(const QString &mayaPath)
 {
     RendererInfo info;
 
-    // Redshift 插件路径
-    QString redshiftPlugin;
+    // Redshift 可能在多个位置
+    QStringList possiblePaths;
 
 #ifdef Q_OS_WIN
-    redshiftPlugin = mayaPath + "/plug-ins/redshift4maya.mll";
+    possiblePaths << mayaPath + "/bin/plug-ins/redshift4maya.mll";
+    possiblePaths << mayaPath + "/plug-ins/redshift4maya.mll";
 #elif defined(Q_OS_MAC)
-    redshiftPlugin = mayaPath + "/plug-ins/redshift4maya.bundle";
+    possiblePaths << mayaPath + "/Maya.app/Contents/plug-ins/redshift4maya.bundle";
+    possiblePaths << mayaPath + "/plug-ins/redshift4maya.bundle";
 #elif defined(Q_OS_LINUX)
-    redshiftPlugin = mayaPath + "/plug-ins/redshift4maya.so";
+    possiblePaths << mayaPath + "/plug-ins/redshift4maya.so";
 #endif
 
-    if (QFile::exists(redshiftPlugin)) {
-        info.name = "Redshift";
-        info.pluginPath = redshiftPlugin;
-        info.isLoaded = true;
-        info.version = "Unknown";
+    for (const QString &redshiftPlugin : possiblePaths) {
+        qDebug() << "检测 Redshift:" << redshiftPlugin << "存在:" << QFile::exists(redshiftPlugin);
+        if (QFile::exists(redshiftPlugin)) {
+            info.name = "Redshift";
+            info.pluginPath = redshiftPlugin;
+            info.isLoaded = true;
+            info.version = "Unknown";
+            break;
+        }
     }
 
     return info;
