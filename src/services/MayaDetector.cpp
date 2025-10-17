@@ -38,36 +38,57 @@ QVector<MayaSoftwareInfo> MayaDetector::detectAllMayaVersions()
     // 扫描常用安装目录
     mayaPaths.append(scanCommonInstallPaths());
 
-    // 如果没找到任何 Maya,使用暴力搜索作为最后手段
-    if (mayaPaths.isEmpty()) {
-        qDebug() << "常规方法未检测到 Maya，启动暴力搜索...";
-        emit detectProgress(20, "启动全盘搜索 Maya...");
-        mayaPaths.append(bruteForceSearchMaya());
-    }
-
     // 去重
     mayaPaths.removeDuplicates();
 
-    emit detectProgress(30, QString("找到 %1 个可能的 Maya 安装路径").arg(mayaPaths.size()));
+    qDebug() << "常规方法找到" << mayaPaths.size() << "个可能的 Maya 路径，开始验证...";
+    emit detectProgress(30, QString("找到 %1 个可能的 Maya 安装路径，正在验证...").arg(mayaPaths.size()));
 
     // 验证每个路径
     int currentProgress = 30;
-    int step = 60 / qMax(1, mayaPaths.size());
+    int step = mayaPaths.isEmpty() ? 0 : (50 / mayaPaths.size());
 
     for (const QString &path : mayaPaths) {
+        qDebug() << "验证路径:" << path;
         if (isValidMayaInstall(path)) {
             MayaSoftwareInfo info = detectMayaAtPath(path);
             if (info.isValid) {
                 results.append(info);
-                qDebug() << "检测到 Maya:" << info.version << "安装路径:" << info.installPath;
+                qDebug() << "✓ 检测到有效 Maya:" << info.version << "安装路径:" << info.installPath;
+            } else {
+                qDebug() << "✗ 路径无效（版本号或 maya.exe 不存在）:" << path;
             }
+        } else {
+            qDebug() << "✗ 路径验证失败（maya.exe 不存在）:" << path;
         }
 
         currentProgress += step;
-        emit detectProgress(currentProgress, QString("检测: %1").arg(path));
+        emit detectProgress(currentProgress, QString("验证: %1").arg(path));
+    }
+
+    // 如果常规方法没有找到任何有效的 Maya，启动暴力搜索
+    if (results.isEmpty()) {
+        qDebug() << "========================================";
+        qDebug() << "常规方法未找到有效 Maya，启动暴力搜索...";
+        qDebug() << "========================================";
+        emit detectProgress(80, "启动全盘搜索 Maya...");
+
+        QStringList bruteForcePaths = bruteForceSearchMaya();
+        qDebug() << "暴力搜索找到" << bruteForcePaths.size() << "个 Maya 路径";
+
+        for (const QString &path : bruteForcePaths) {
+            if (isValidMayaInstall(path)) {
+                MayaSoftwareInfo info = detectMayaAtPath(path);
+                if (info.isValid) {
+                    results.append(info);
+                    qDebug() << "✓ 暴力搜索检测到 Maya:" << info.version << "安装路径:" << info.installPath;
+                }
+            }
+        }
     }
 
     emit detectProgress(100, "Maya 检测完成");
+    qDebug() << "最终检测到" << results.size() << "个有效 Maya 安装";
     emit detectFinished();
 
     return results;
