@@ -227,4 +227,83 @@ private:
      * @return 找到的 Maya 安装路径列表
      */
     QStringList bruteForceSearchMaya();
+
+    /**
+     * @brief 从Arnold插件路径提取版本信息
+     * @param pluginPath Arnold插件路径
+     * @param mayaVersion Maya版本号
+     * @return Arnold版本号
+     */
+    QString extractArnoldVersion(const QString &pluginPath, const QString &mayaVersion);
+
+
+    /**
+     * @brief 搜索Arnold版本信息文件
+     * @param pluginPath Arnold插件路径
+     * @return 找到的版本信息文件路径列表
+     */
+    QStringList searchArnoldVersionFiles(const QString &pluginPath);
+
+    /**
+     * @brief 从mtoa.mod文件提取Arnold路径并查找版本信息
+     * @param modFilePath mtoa.mod文件路径
+     * @return 提取的版本号
+     */
+    QString extractVersionFromMtoaMod(const QString &modFilePath);
+
+    /**
+     * @brief 从MtoA版本头文件提取版本信息
+     * @param headerFilePath Version.h文件路径
+     * @return 提取的版本号
+     */
+    QString extractVersionFromMtoaHeader(const QString &headerFilePath);
+
+    /**
+     * @brief 从Arnold核心版本头文件提取版本信息
+     * @param headerFilePath ai_version.h文件路径
+     * @return 提取的版本号
+     */
+    QString extractVersionFromArnoldHeader(const QString &headerFilePath);
+
+    /**
+     * @brief 从Maya插件配置文件读取插件信息
+     * @param mayaVersion Maya版本号
+     * @return 插件信息列表
+     */
+    QList<RendererInfo> readPluginsFromPrefs(const QString &mayaVersion);
+
+    /**
+     * @brief 获取Maya所有插件信息（完整检测）
+     * @param mayaVersion Maya版本号
+     * @return 所有插件信息列表
+     */
+    QList<RendererInfo> getAllMayaPlugins(const QString &mayaVersion);
+
+    /**
+     * @brief 从环境变量获取插件路径
+     * @return 插件路径列表
+     */
+    QStringList getPluginPathsFromEnvironment();
+
+    /**
+     * @brief 扫描所有可能的插件目录
+     * @param mayaVersion Maya版本号
+     * @return 插件信息列表
+     */
+    QList<RendererInfo> scanAllPluginDirectories(const QString &mayaVersion);
+
+    /**
+     * @brief 通过Maya命令获取插件信息（经过验证的方法）
+     * @param mayaVersion Maya版本号
+     * @return 插件信息列表
+     */
+    QList<RendererInfo> getPluginsFromMayaCommands(const QString &mayaVersion);
+
+    /**
+     * @brief 执行Maya MEL命令获取插件信息
+     * @param mayaExecutablePath Maya可执行文件路径
+     * @param melCommand MEL命令
+     * @return 命令输出结果
+     */
+    QString executeMayaMelCommand(const QString &mayaExecutablePath, const QString &melCommand);
 };
