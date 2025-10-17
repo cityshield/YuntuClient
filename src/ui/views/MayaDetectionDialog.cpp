@@ -11,12 +11,14 @@
 #include <QGroupBox>
 #include <QDateTime>
 #include <QFile>
+#include <QDir>
 #include <QFileDialog>
 #include <QTextStream>
 #include <QMessageBox>
 #include <QScrollBar>
 #include <QApplication>
 #include <QTimer>
+#include <QSet>
 
 MayaDetectionDialog::MayaDetectionDialog(QWidget *parent)
     : QDialog(parent)
@@ -136,7 +138,10 @@ void MayaDetectionDialog::onExportResults()
 
     QTextStream out(&file);
     out.setEncoding(QStringConverter::Utf8);
-    out << m_resultText->toPlainText();
+
+    // 导出完整报告（包含所有插件）
+    QString fullReport = generateFullReport(m_detectedMayaVersions);
+    out << fullReport;
     file.close();
 
     QMessageBox::information(this, QString::fromUtf8("成功"),
@@ -340,7 +345,7 @@ void MayaDetectionDialog::displayResults(const QVector<MayaSoftwareInfo> &mayaVe
     m_resultText->moveCursor(QTextCursor::Start);
 }
 
-QString MayaDetectionDialog::formatMayaInfo(const MayaSoftwareInfo &info, int index) const
+QString MayaDetectionDialog::formatMayaInfo(const MayaSoftwareInfo &info, int index, bool fullPluginList) const
 {
     QString result;
 
@@ -375,13 +380,20 @@ QString MayaDetectionDialog::formatMayaInfo(const MayaSoftwareInfo &info, int in
     if (info.plugins.isEmpty()) {
         result += QString::fromUtf8("   (未检测到插件)\n");
     } else {
-        // 显示前20个插件
-        int displayCount = qMin(20, info.plugins.size());
-        for (int i = 0; i < displayCount; ++i) {
-            result += QString::fromUtf8("   • %1\n").arg(info.plugins[i]);
-        }
-        if (info.plugins.size() > 20) {
-            result += QString::fromUtf8("   ... 还有 %1 个插件（完整列表请导出报告查看）\n").arg(info.plugins.size() - 20);
+        if (fullPluginList) {
+            // 导出时显示所有插件
+            for (int i = 0; i < info.plugins.size(); ++i) {
+                result += QString::fromUtf8("   • %1\n").arg(info.plugins[i]);
+            }
+        } else {
+            // 界面显示时只显示前20个插件
+            int displayCount = qMin(20, info.plugins.size());
+            for (int i = 0; i < displayCount; ++i) {
+                result += QString::fromUtf8("   • %1\n").arg(info.plugins[i]);
+            }
+            if (info.plugins.size() > 20) {
+                result += QString::fromUtf8("   ... 还有 %1 个插件（完整列表请导出报告查看）\n").arg(info.plugins.size() - 20);
+            }
         }
     }
 
@@ -417,4 +429,90 @@ QString MayaDetectionDialog::addSeparator(const QString &title) const
     } else {
         return QString::fromUtf8("\n═══════════════════════════════════════════════════════════════\n  %1\n═══════════════════════════════════════════════════════════════\n\n").arg(title);
     }
+}
+
+QString MayaDetectionDialog::generateFullReport(const QVector<MayaSoftwareInfo> &mayaVersions) const
+{
+    QString report;
+
+    // 报告头部
+    report += QString::fromUtf8("═══════════════════════════════════════════════════════════════\n");
+    report += QString::fromUtf8("  盛世云图 - Maya 环境检测报告\n");
+    report += QString::fromUtf8("═══════════════════════════════════════════════════════════════\n\n");
+    report += QString::fromUtf8("检测时间: %1\n")
+        .arg(QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss"));
+    report += QString::fromUtf8("报告版本: 1.0.0\n");
+    report += QString::fromUtf8("检测平台: Windows\n");
+    report += addSeparator();
+
+    // 检测摘要
+    report += addSeparator(QString::fromUtf8("检测摘要"));
+    report += generateSummary(mayaVersions);
+    report += "\n";
+
+    if (mayaVersions.isEmpty()) {
+        report += addSeparator();
+        report += QString::fromUtf8("❌ 未检测到 Maya 安装\n\n");
+        report += QString::fromUtf8("可能的原因:\n");
+        report += QString::fromUtf8("  1. 系统中未安装 Maya\n");
+        report += QString::fromUtf8("  2. Maya 安装在非标准路径\n");
+        report += QString::fromUtf8("  3. 注册表信息缺失\n");
+        report += addSeparator();
+        return report;
+    }
+
+    // 详细信息（包含所有插件）
+    for (int i = 0; i < mayaVersions.size(); ++i) {
+        report += addSeparator(QString::fromUtf8("Maya 版本 #%1").arg(i + 1));
+        report += formatMayaInfo(mayaVersions[i], i, true);  // true = 显示完整插件列表
+        report += "\n";
+    }
+
+    // 统计信息
+    report += addSeparator(QString::fromUtf8("统计信息"));
+
+    // 统计渲染器
+    QSet<QString> allRenderers;
+    for (const auto &info : mayaVersions) {
+        for (const QString &renderer : info.renderers) {
+            allRenderers.insert(renderer);
+        }
+    }
+
+    report += QString::fromUtf8("📊 检测到的渲染器类型: %1 种\n").arg(allRenderers.size());
+    if (!allRenderers.isEmpty()) {
+        for (const QString &renderer : allRenderers) {
+            report += QString::fromUtf8("   • %1\n").arg(renderer);
+        }
+    }
+
+    // 统计插件总数
+    int totalPlugins = 0;
+    for (const auto &info : mayaVersions) {
+        totalPlugins += info.plugins.size();
+    }
+    report += QString::fromUtf8("\n📦 检测到的插件总数: %1 个\n").arg(totalPlugins);
+
+    // 完整插件列表（按 Maya 版本分组）
+    if (totalPlugins > 0) {
+        report += addSeparator(QString::fromUtf8("完整插件列表"));
+        for (int i = 0; i < mayaVersions.size(); ++i) {
+            const auto &info = mayaVersions[i];
+            if (!info.plugins.isEmpty()) {
+                report += QString::fromUtf8("\nMaya %1 (%2 个插件):\n").arg(info.version).arg(info.plugins.size());
+                for (int j = 0; j < info.plugins.size(); ++j) {
+                    report += QString::fromUtf8("  %1. %2\n").arg(j + 1).arg(info.plugins[j]);
+                }
+            }
+        }
+    }
+
+    // 报告尾部
+    report += addSeparator();
+    report += QString::fromUtf8("✅ 检测完成！\n\n");
+    report += QString::fromUtf8("本报告由盛世云图客户端自动生成\n");
+    report += QString::fromUtf8("技术支持: https://yuntu.com\n");
+    report += addSeparator();
+
+    return report;
 }

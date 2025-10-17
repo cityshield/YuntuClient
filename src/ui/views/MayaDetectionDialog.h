@@ -77,8 +77,11 @@ private:
 
     /**
      * @brief 格式化 Maya 信息为文本
+     * @param info Maya 信息
+     * @param index 索引
+     * @param fullPluginList 是否显示完整插件列表（用于导出）
      */
-    QString formatMayaInfo(const MayaSoftwareInfo &info, int index) const;
+    QString formatMayaInfo(const MayaSoftwareInfo &info, int index, bool fullPluginList = false) const;
 
     /**
      * @brief 生成摘要信息
@@ -89,6 +92,11 @@ private:
      * @brief 添加分割线
      */
     QString addSeparator(const QString &title = QString()) const;
+
+    /**
+     * @brief 生成完整的检测报告（用于导出）
+     */
+    QString generateFullReport(const QVector<MayaSoftwareInfo> &mayaVersions) const;
 
 private:
     // 检测器
