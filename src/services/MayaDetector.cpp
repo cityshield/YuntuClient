@@ -633,7 +633,7 @@ QMap<QString, QString> MayaDetector::readPluginPrefs(const QString &mayaVersion)
 
         // 解析 pluginInfo 命令
         // 示例: pluginInfo -edit -autoload true -pluginPath "C:/solidangle/mtoadeploy/2022/plug-ins" "mtoa";
-        QRegularExpression re(R"(pluginInfo.*?-pluginPath\s+"([^"]+)".*?"([^"]+)")");
+        QRegularExpression re("pluginInfo.*?-pluginPath\\s+\"([^\"]+)\".*?\"([^\"]+)\"");
         QRegularExpressionMatchIterator it = re.globalMatch(content);
 
         while (it.hasNext()) {
