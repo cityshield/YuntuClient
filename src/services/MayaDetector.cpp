@@ -411,12 +411,16 @@ QString MayaDetector::extractVersionFromPath(const QString &path)
 {
     // 从路径中提取版本号
     // 例如: "C:/Program Files/Autodesk/Maya2024" -> "2024"
+    // 也支持: "C:/Program Files/Autodesk/Maya 2024" -> "2024"
     QRegularExpression re("Maya\\s?(\\d{4})", QRegularExpression::CaseInsensitiveOption);
     QRegularExpressionMatch match = re.match(path);
     if (match.hasMatch()) {
-        return match.captured(1);
+        QString version = match.captured(1);
+        qDebug() << "从路径提取版本号:" << path << "->" << version;
+        return version;
     }
 
+    qDebug() << "无法从路径提取版本号:" << path;
     return QString();
 }
 
@@ -712,53 +716,102 @@ QStringList MayaDetector::scanThirdPartyPluginRegistry(const QString &mayaVersio
     QStringList paths;
 
 #ifdef Q_OS_WIN
-    // 扫描常见第三方插件的注册表路径
-    QStringList registryKeys;
-
-    // Arnold
-    registryKeys << QString("HKEY_LOCAL_MACHINE\\SOFTWARE\\Autodesk\\Arnold\\Maya%1").arg(mayaVersion);
-    registryKeys << QString("HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Autodesk\\Arnold\\Maya%1").arg(mayaVersion);
-    registryKeys << QString("HKEY_LOCAL_MACHINE\\SOFTWARE\\SolidAngle\\Arnold\\Maya%1").arg(mayaVersion);
-
-    // V-Ray
-    registryKeys << QString("HKEY_LOCAL_MACHINE\\SOFTWARE\\Chaos Group\\V-Ray\\Maya %1 for x64").arg(mayaVersion);
-    registryKeys << QString("HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Chaos Group\\V-Ray\\Maya %1 for x64").arg(mayaVersion);
-
-    // Redshift
-    registryKeys << QString("HKEY_LOCAL_MACHINE\\SOFTWARE\\Redshift\\Maya%1").arg(mayaVersion);
-    registryKeys << QString("HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Redshift\\Maya%1").arg(mayaVersion);
-
-    // Yeti
-    registryKeys << QString("HKEY_LOCAL_MACHINE\\SOFTWARE\\Peregrine Labs\\Yeti\\Maya%1").arg(mayaVersion);
-    registryKeys << QString("HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Peregrine Labs\\Yeti\\Maya%1").arg(mayaVersion);
-
     qDebug() << "扫描第三方插件注册表 for Maya" << mayaVersion;
 
-    for (const QString &key : registryKeys) {
-        QSettings registry(key, QSettings::NativeFormat);
+    // 定义要扫描的插件基础注册表路径
+    QStringList baseKeys;
 
-        // 尝试多个可能的键名
-        QStringList valueNames;
-        valueNames << "InstallDir" << "INSTALL_PATH" << "Path" << "PluginPath" << "Location";
+    // Arnold 可能的注册表位置
+    baseKeys << "HKEY_LOCAL_MACHINE\\SOFTWARE\\Autodesk\\Arnold";
+    baseKeys << "HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Autodesk\\Arnold";
+    baseKeys << "HKEY_LOCAL_MACHINE\\SOFTWARE\\SolidAngle\\Arnold";
 
-        for (const QString &valueName : valueNames) {
-            QString installPath = registry.value(valueName).toString();
-            if (!installPath.isEmpty() && QDir(installPath).exists()) {
-                qDebug() << "  从注册表找到:" << key << "->" << installPath;
-                paths.append(installPath);
+    // V-Ray 可能的注册表位置
+    baseKeys << "HKEY_LOCAL_MACHINE\\SOFTWARE\\Chaos Group\\V-Ray";
+    baseKeys << "HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Chaos Group\\V-Ray";
 
-                // 添加常见的插件子目录
-                QStringList subDirs;
-                subDirs << "/plug-ins" << "/bin/plug-ins" << "/maya" + mayaVersion + "/plug-ins";
+    // Redshift 可能的注册表位置
+    baseKeys << "HKEY_LOCAL_MACHINE\\SOFTWARE\\Redshift";
+    baseKeys << "HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Redshift";
 
-                for (const QString &subDir : subDirs) {
-                    QString pluginPath = installPath + subDir;
+    // Yeti 可能的注册表位置
+    baseKeys << "HKEY_LOCAL_MACHINE\\SOFTWARE\\Peregrine Labs\\Yeti";
+    baseKeys << "HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Peregrine Labs\\Yeti";
+
+    // 扫描每个基础路径下的子键
+    for (const QString &baseKey : baseKeys) {
+        QSettings baseRegistry(baseKey, QSettings::NativeFormat);
+        QStringList subKeys = baseRegistry.childGroups();
+
+        qDebug() << "  扫描基础键:" << baseKey << "子键:" << subKeys;
+
+        // 检查是否有与当前 Maya 版本匹配的子键
+        for (const QString &subKey : subKeys) {
+            // 检查子键名称是否包含 Maya 版本号
+            // 例如: "Maya2022", "Maya 2022 for x64", "Maya2018" 等
+            if (subKey.contains(mayaVersion, Qt::CaseInsensitive) ||
+                subKey.contains("Maya" + mayaVersion, Qt::CaseInsensitive)) {
+
+                QString fullKey = baseKey + "\\" + subKey;
+                qDebug() << "    找到匹配的子键:" << fullKey;
+
+                QSettings registry(fullKey, QSettings::NativeFormat);
+
+                // 尝试多个可能的键名
+                QStringList valueNames;
+                valueNames << "InstallDir" << "INSTALL_PATH" << "Path" << "PluginPath" << "Location" << "";
+
+                for (const QString &valueName : valueNames) {
+                    QString installPath = registry.value(valueName).toString();
+                    if (!installPath.isEmpty() && QDir(installPath).exists()) {
+                        qDebug() << "      从注册表找到路径:" << installPath;
+                        paths.append(installPath);
+
+                        // 添加常见的插件子目录
+                        QStringList subDirs;
+                        subDirs << "/plug-ins"
+                                << "/bin/plug-ins"
+                                << "/maya" + mayaVersion + "/plug-ins"
+                                << "/maya" + mayaVersion
+                                << "";
+
+                        for (const QString &subDir : subDirs) {
+                            QString pluginPath = installPath + subDir;
+                            if (QDir(pluginPath).exists()) {
+                                qDebug() << "        子目录:" << pluginPath;
+                                paths.append(pluginPath);
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
+        // 也检查基础键本身的默认值
+        QString installPath = baseRegistry.value("").toString();
+        if (installPath.isEmpty()) {
+            installPath = baseRegistry.value("InstallDir").toString();
+        }
+        if (!installPath.isEmpty() && QDir(installPath).exists()) {
+            qDebug() << "  从基础键找到路径:" << installPath;
+
+            // 尝试在该路径下找到对应版本的子目录
+            QDir installDir(installPath);
+            QStringList versionDirs;
+            versionDirs << "maya" + mayaVersion;
+            versionDirs << mayaVersion;
+
+            for (const QString &versionDir : versionDirs) {
+                QString versionPath = installPath + "/" + versionDir;
+                if (QDir(versionPath).exists()) {
+                    paths.append(versionPath);
+                    QString pluginPath = versionPath + "/plug-ins";
                     if (QDir(pluginPath).exists()) {
-                        qDebug() << "    子目录:" << pluginPath;
+                        qDebug() << "    版本子目录:" << pluginPath;
                         paths.append(pluginPath);
                     }
                 }
-                break; // 找到一个就跳出
             }
         }
     }
