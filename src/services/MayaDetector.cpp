@@ -908,53 +908,125 @@ QStringList MayaDetector::readModulePaths(const QString &mayaVersion)
     QStringList paths;
 
 #ifdef Q_OS_WIN
-    // Maya 模块路径
+    qDebug() << "========== 开始扫描 Maya 模块系统 ==========";
+
+    // Maya 模块路径（优先级从高到低）
     QStringList moduleDirs;
+
+    // 1. 用户级模块（最高优先级）
     moduleDirs << QDir::homePath() + "/Documents/maya/" + mayaVersion + "/modules";
     moduleDirs << QDir::homePath() + "/Documents/maya/modules";
+
+    // 2. 系统级模块（关键！Arnold 通常在这里注册）
+    moduleDirs << "C:/ProgramData/Autodesk/ApplicationPlugins";  // 重要！
     moduleDirs << "C:/Program Files/Common Files/Autodesk Shared/Modules/maya/" + mayaVersion;
+    moduleDirs << "C:/Program Files/Common Files/Autodesk Shared/Modules/maya";
+
+    // 3. 扫描所有驱动器的 ProgramData
+    QFileInfoList drives = QDir::drives();
+    for (const QFileInfo &drive : drives) {
+        QString driveLetter = drive.absolutePath();
+        moduleDirs << driveLetter + "ProgramData/Autodesk/ApplicationPlugins";
+        moduleDirs << driveLetter + "Program Files/Common Files/Autodesk Shared/Modules/maya/" + mayaVersion;
+    }
+
+    // 去重
+    moduleDirs.removeDuplicates();
 
     for (const QString &moduleDir : moduleDirs) {
         QDir dir(moduleDir);
-        if (!dir.exists()) continue;
+        if (!dir.exists()) {
+            qDebug() << "  跳过不存在的目录:" << moduleDir;
+            continue;
+        }
 
-        qDebug() << "扫描模块目录:" << moduleDir;
+        qDebug() << "✓ 扫描模块目录:" << moduleDir;
 
-        // 读取 .mod 文件
-        QFileInfoList modFiles = dir.entryInfoList(QStringList() << "*.mod", QDir::Files);
-        for (const QFileInfo &modFile : modFiles) {
-            QFile file(modFile.absoluteFilePath());
-            if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-                QTextStream in(&file);
-                while (!in.atEnd()) {
-                    QString line = in.readLine().trimmed();
+        // 在 ApplicationPlugins 中，插件通常在子文件夹中
+        // 例如: C:/ProgramData/Autodesk/ApplicationPlugins/MtoA/Contents/
+        QStringList subdirs = dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+        for (const QString &subdir : subdirs) {
+            QString subdirPath = dir.absoluteFilePath(subdir);
 
-                    // 跳过注释和空行
-                    if (line.isEmpty() || line.startsWith("#") || line.startsWith("+")) {
-                        continue;
-                    }
+            // 查找 .mod 文件（在子目录或 Contents 目录中）
+            QStringList modSearchPaths;
+            modSearchPaths << subdirPath;
+            modSearchPaths << subdirPath + "/Contents";
+            modSearchPaths << subdirPath + "/Contents/modules";
 
-                    // 解析模块定义
-                    // 示例: + MAYAVERSION:2022 mtoa 5.1.0 C:/solidangle/mtoadeploy/2022
-                    QStringList parts = line.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
-                    if (parts.size() >= 4) {
-                        QString modulePath = parts.last();
-                        if (QDir(modulePath).exists()) {
-                            // 添加 plug-ins 子目录
-                            QString pluginPath = modulePath + "/plug-ins";
-                            if (QDir(pluginPath).exists()) {
-                                qDebug() << "  从模块文件找到:" << pluginPath;
-                                paths.append(pluginPath);
+            for (const QString &modSearchPath : modSearchPaths) {
+                QDir modDir(modSearchPath);
+                if (!modDir.exists()) continue;
+
+                QFileInfoList modFiles = modDir.entryInfoList(QStringList() << "*.mod" << "*.xml", QDir::Files);
+                for (const QFileInfo &modFile : modFiles) {
+                    qDebug() << "    找到模块文件:" << modFile.fileName();
+
+                    QFile file(modFile.absoluteFilePath());
+                    if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+                        QTextStream in(&file);
+                        while (!in.atEnd()) {
+                            QString line = in.readLine().trimmed();
+
+                            // 跳过注释和空行
+                            if (line.isEmpty() || line.startsWith("#")) {
+                                continue;
                             }
-                            // 也添加根目录（可能直接包含插件）
-                            paths.append(modulePath);
+
+                            // 解析模块定义（多种格式）
+                            // 格式1: + MAYAVERSION:2022 mtoa 5.1.0 C:/Program Files/Autodesk/Arnold/maya2022
+                            // 格式2: + mtoa 5.1.0 ../
+                            QString modulePath;
+
+                            if (line.startsWith("+")) {
+                                QStringList parts = line.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
+                                if (parts.size() >= 2) {
+                                    // 最后一个部分通常是路径
+                                    QString lastPart = parts.last();
+
+                                    // 处理相对路径
+                                    if (lastPart == "../" || lastPart == "..") {
+                                        modulePath = QFileInfo(modFile.absoluteFilePath()).dir().absolutePath();
+                                        QDir parentDir(modulePath);
+                                        parentDir.cdUp();
+                                        modulePath = parentDir.absolutePath();
+                                    } else if (lastPart.startsWith("./")) {
+                                        modulePath = QFileInfo(modFile.absoluteFilePath()).dir().absolutePath() + "/" + lastPart.mid(2);
+                                    } else if (QDir(lastPart).exists() || QDir(modSearchPath + "/" + lastPart).exists()) {
+                                        modulePath = QDir(lastPart).exists() ? lastPart : modSearchPath + "/" + lastPart;
+                                    }
+
+                                    if (!modulePath.isEmpty() && QDir(modulePath).exists()) {
+                                        qDebug() << "      解析到模块路径:" << modulePath;
+
+                                        // 添加 plug-ins 子目录
+                                        QStringList pluginSubDirs;
+                                        pluginSubDirs << "/plug-ins"
+                                                     << "/bin/plug-ins"
+                                                     << "";
+
+                                        for (const QString &pluginSubDir : pluginSubDirs) {
+                                            QString pluginPath = modulePath + pluginSubDir;
+                                            if (QDir(pluginPath).exists()) {
+                                                qDebug() << "        ✓ 插件目录:" << pluginPath;
+                                                paths.append(pluginPath);
+                                            }
+                                        }
+
+                                        // 也添加根目录
+                                        paths.append(modulePath);
+                                    }
+                                }
+                            }
                         }
+                        file.close();
                     }
                 }
-                file.close();
             }
         }
     }
+
+    qDebug() << "========== 模块扫描完成，共找到" << paths.size() << "个路径 ==========\n";
 #endif
 
     return paths;
