@@ -8,6 +8,7 @@
 #include <QStringConverter>
 #include <QMap>
 #include <QDirIterator>
+#include <QProcess>
 
 #ifdef Q_OS_WIN
 #include <Windows.h>
@@ -1718,17 +1719,21 @@ QString MayaDetector::extractArnoldVersion(const QString &pluginPath, const QStr
     // 方法3: 从模块文件 (.mod) 中提取版本信息
     // Arnold 通常在模块文件中声明版本
     QStringList moduleDirs;
-    
+
+    // 获取插件所在目录
+    QFileInfo pluginFileInfo(pluginPath);
+    QDir pluginDir = pluginFileInfo.absoluteDir();
+
 #ifdef Q_OS_WIN
     // 用户级模块
     moduleDirs << QDir::homePath() + "/Documents/maya/" + mayaVersion + "/modules";
     moduleDirs << QDir::homePath() + "/Documents/maya/modules";
-    
+
     // 系统级模块（Arnold 通常在这里）
     moduleDirs << "C:/ProgramData/Autodesk/ApplicationPlugins";
     moduleDirs << "C:/Program Files/Common Files/Autodesk Shared/Modules/maya/" + mayaVersion;
     moduleDirs << "C:/Program Files/Common Files/Autodesk Shared/Modules/maya";
-    
+
     // 在插件目录附近查找模块文件
     QDir parentDir = pluginDir;
     parentDir.cdUp(); // 上一级目录
@@ -1829,17 +1834,18 @@ QString MayaDetector::extractArnoldVersion(const QString &pluginPath, const QStr
                         qDebug() << "  尝试在Arnold目录中查找版本文件:" << arnoldPath;
                         QStringList arnoldVersionFiles = searchArnoldVersionFiles(arnoldPath + "/plug-ins/mtoa.mll");
                         for (const QString &versionFile : arnoldVersionFiles) {
-                            QFile file(versionFile);
-                            if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-                                QTextStream in(&file);
-                                QString fileContent = in.readAll();
-                                file.close();
-                                
-                                QString parsedVersion = parseArnoldVersionText(fileContent);
-                                if (parsedVersion != "Unknown") {
-                                    qDebug() << "  ✓ 从Arnold目录版本文件提取到版本:" << parsedVersion;
-                                    return parsedVersion;
-                                }
+                            QString extractedVersion = "Unknown";
+
+                            // 根据文件类型使用不同的提取函数
+                            if (versionFile.endsWith("include/mtoa/utils/Version.h", Qt::CaseInsensitive)) {
+                                extractedVersion = extractVersionFromMtoaHeader(versionFile);
+                            } else if (versionFile.endsWith("include/arnold/ai_version.h", Qt::CaseInsensitive)) {
+                                extractedVersion = extractVersionFromArnoldHeader(versionFile);
+                            }
+
+                            if (extractedVersion != "Unknown") {
+                                qDebug() << "  ✓ 从Arnold目录版本文件提取到版本:" << extractedVersion;
+                                return extractedVersion;
                             }
                         }
                     }
