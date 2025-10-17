@@ -147,12 +147,26 @@ QVector<RendererInfo> MayaDetector::detectRenderers(const MayaSoftwareInfo &maya
         arnold.isLoaded = true;
         arnold.version = "Unknown";
 
-        // 尝试找到实际的 .mll 文件
-        QString mllPath = arnold.pluginPath + "/mtoa.mll";
-        if (QFile::exists(mllPath)) {
-            arnold.pluginPath = mllPath;
-            qDebug() << "  ✓ Arnold (从 Plug-in Manager):" << mllPath;
-        } else {
+        // 尝试找到实际的插件文件
+        QStringList arnoldExts;
+#ifdef Q_OS_WIN
+        arnoldExts << ".mll" << ".dll";
+#elif defined(Q_OS_MAC)
+        arnoldExts << ".bundle";
+#elif defined(Q_OS_LINUX)
+        arnoldExts << ".so";
+#endif
+
+        for (const QString &ext : arnoldExts) {
+            QString pluginFile = arnold.pluginPath + "/mtoa" + ext;
+            if (QFile::exists(pluginFile)) {
+                arnold.pluginPath = pluginFile;
+                qDebug() << "  ✓ Arnold (从 Plug-in Manager):" << pluginFile;
+                break;
+            }
+        }
+
+        if (!QFile::exists(arnold.pluginPath) || arnold.pluginPath.isEmpty()) {
             qDebug() << "  ✓ Arnold (从 Plug-in Manager，路径:" << arnold.pluginPath << ")";
         }
 
@@ -246,14 +260,24 @@ QStringList MayaDetector::detectPlugins(const MayaSoftwareInfo &mayaInfo)
             // 检查插件文件是否存在
             QString fullPluginPath;
 
+            // 根据平台确定插件扩展名
+            QStringList pluginExtensions;
+#ifdef Q_OS_WIN
+            pluginExtensions << ".mll" << ".dll" << ".py";
+#elif defined(Q_OS_MAC)
+            pluginExtensions << ".bundle" << ".py";
+#elif defined(Q_OS_LINUX)
+            pluginExtensions << ".so" << ".py";
+#endif
+
             // 如果有明确路径，先尝试
             if (!pluginPath.isEmpty()) {
-                if (QFile::exists(pluginPath + "/" + pluginName + ".mll")) {
-                    fullPluginPath = pluginPath + "/" + pluginName + ".mll";
-                } else if (QFile::exists(pluginPath + "/" + pluginName + ".py")) {
-                    fullPluginPath = pluginPath + "/" + pluginName + ".py";
-                } else if (QFile::exists(pluginPath + "/" + pluginName + ".bundle")) {
-                    fullPluginPath = pluginPath + "/" + pluginName + ".bundle";
+                for (const QString &ext : pluginExtensions) {
+                    QString testPath = pluginPath + "/" + pluginName + ext;
+                    if (QFile::exists(testPath)) {
+                        fullPluginPath = testPath;
+                        break;
+                    }
                 }
             }
 
@@ -295,13 +319,15 @@ QStringList MayaDetector::detectPlugins(const MayaSoftwareInfo &mayaInfo)
 #endif
 
                 for (const QString &searchPath : searchPaths) {
-                    if (QFile::exists(searchPath + "/" + pluginName + ".mll")) {
-                        fullPluginPath = searchPath + "/" + pluginName + ".mll";
-                        qDebug() << "    在搜索路径中找到:" << fullPluginPath;
-                        break;
-                    } else if (QFile::exists(searchPath + "/" + pluginName + ".py")) {
-                        fullPluginPath = searchPath + "/" + pluginName + ".py";
-                        qDebug() << "    在搜索路径中找到:" << fullPluginPath;
+                    for (const QString &ext : pluginExtensions) {
+                        QString testPath = searchPath + "/" + pluginName + ext;
+                        if (QFile::exists(testPath)) {
+                            fullPluginPath = testPath;
+                            qDebug() << "    在搜索路径中找到:" << fullPluginPath;
+                            break;
+                        }
+                    }
+                    if (!fullPluginPath.isEmpty()) {
                         break;
                     }
                 }
@@ -334,19 +360,23 @@ QStringList MayaDetector::detectPlugins(const MayaSoftwareInfo &mayaInfo)
                 // 如果所有方法都找不到，使用暴力搜索作为最后手段
                 qDebug() << "  ?" << pluginName << "未在常规路径找到，尝试暴力搜索...";
 
-#ifdef Q_OS_WIN
-                QStringList bruteSearchResults = bruteForceSearchPlugin(pluginName + ".mll", mayaInfo.version);
-                if (!bruteSearchResults.isEmpty()) {
-                    fullPluginPath = bruteSearchResults.first();  // 使用第一个匹配（优先级最高）
-                    qDebug() << "  ✓✓✓ 通过暴力搜索找到:" << fullPluginPath;
-                    plugins << formattedName + " [暴力搜索找到]";
-                } else {
+                // 尝试所有可能的扩展名进行暴力搜索
+                bool foundByBruteForce = false;
+                for (const QString &ext : pluginExtensions) {
+                    QStringList bruteSearchResults = bruteForceSearchPlugin(pluginName + ext, mayaInfo.version);
+                    if (!bruteSearchResults.isEmpty()) {
+                        fullPluginPath = bruteSearchResults.first();
+                        qDebug() << "  ✓✓✓ 通过暴力搜索找到:" << fullPluginPath;
+                        plugins << formattedName + " [暴力搜索找到]";
+                        foundByBruteForce = true;
+                        break;
+                    }
+                }
+
+                if (!foundByBruteForce) {
                     qDebug() << "  ✗ 暴力搜索也未找到" << pluginName;
                     plugins << formattedName + " [已注册，但文件未找到]";
                 }
-#else
-                plugins << formattedName + " [已注册]";
-#endif
             }
         }
     } else {
@@ -388,7 +418,7 @@ QStringList MayaDetector::detectPlugins(const MayaSoftwareInfo &mayaInfo)
 
         QStringList filters;
 #ifdef Q_OS_WIN
-        filters << "*.mll" << "*.py";
+        filters << "*.mll" << "*.dll" << "*.py";
 #elif defined(Q_OS_MAC)
         filters << "*.bundle" << "*.py";
 #elif defined(Q_OS_LINUX)
@@ -728,7 +758,9 @@ RendererInfo MayaDetector::detectArnold(const QString &mayaPath)
 
 #ifdef Q_OS_WIN
     possiblePaths << mayaPath + "/bin/plug-ins/mtoa.mll";
+    possiblePaths << mayaPath + "/bin/plug-ins/mtoa.dll";
     possiblePaths << mayaPath + "/plug-ins/mtoa.mll";
+    possiblePaths << mayaPath + "/plug-ins/mtoa.dll";
 #elif defined(Q_OS_MAC)
     possiblePaths << mayaPath + "/Maya.app/Contents/plug-ins/mtoa.bundle";
     possiblePaths << mayaPath + "/plug-ins/mtoa.bundle";
@@ -759,7 +791,9 @@ RendererInfo MayaDetector::detectVRay(const QString &mayaPath)
 
 #ifdef Q_OS_WIN
     possiblePaths << mayaPath + "/bin/plug-ins/vrayformaya.mll";
+    possiblePaths << mayaPath + "/bin/plug-ins/vrayformaya.dll";
     possiblePaths << mayaPath + "/plug-ins/vrayformaya.mll";
+    possiblePaths << mayaPath + "/plug-ins/vrayformaya.dll";
 #elif defined(Q_OS_MAC)
     possiblePaths << mayaPath + "/Maya.app/Contents/plug-ins/vrayformaya.bundle";
     possiblePaths << mayaPath + "/plug-ins/vrayformaya.bundle";
@@ -790,7 +824,9 @@ RendererInfo MayaDetector::detectRedshift(const QString &mayaPath)
 
 #ifdef Q_OS_WIN
     possiblePaths << mayaPath + "/bin/plug-ins/redshift4maya.mll";
+    possiblePaths << mayaPath + "/bin/plug-ins/redshift4maya.dll";
     possiblePaths << mayaPath + "/plug-ins/redshift4maya.mll";
+    possiblePaths << mayaPath + "/plug-ins/redshift4maya.dll";
 #elif defined(Q_OS_MAC)
     possiblePaths << mayaPath + "/Maya.app/Contents/plug-ins/redshift4maya.bundle";
     possiblePaths << mayaPath + "/plug-ins/redshift4maya.bundle";
