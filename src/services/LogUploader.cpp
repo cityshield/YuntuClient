@@ -1,5 +1,6 @@
 #include "LogUploader.h"
 #include "../core/Application.h"
+#include "../core/Config.h"
 #include "../core/Logger.h"
 #include <QFile>
 #include <QFileInfo>
@@ -122,13 +123,14 @@ void LogUploader::uploadToOss(const QString& filePath, const QString& objectName
     qDebug() << "OSS Authorization:" << authorization;
 
     // 创建请求
-    QNetworkRequest request(QUrl(ossUrl));
-    request.setHeader(QNetworkRequest::ContentTypeHeader, contentType);
-    request.setRawHeader("Date", date.toUtf8());
-    request.setRawHeader("Authorization", authorization.toUtf8());
+    QUrl url(ossUrl);
+    QNetworkRequest networkRequest(url);
+    networkRequest.setHeader(QNetworkRequest::ContentTypeHeader, contentType);
+    networkRequest.setRawHeader("Date", date.toUtf8());
+    networkRequest.setRawHeader("Authorization", authorization.toUtf8());
 
     // 发送 PUT 请求
-    QNetworkReply* reply = m_networkManager->put(request, fileData);
+    QNetworkReply* reply = m_networkManager->put(networkRequest, fileData);
 
     // 连接完成信号
     connect(reply, &QNetworkReply::finished, this, [this, reply, filePath, ossUrl]() {
