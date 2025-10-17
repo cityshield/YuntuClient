@@ -828,40 +828,37 @@ QMap<QString, QString> MayaDetector::readPluginPrefs(const QString &mayaVersion)
 
         qDebug() << "  pluginPrefs.mel 文件大小:" << content.size() << "字节";
 
-        // 解析两种格式的 pluginInfo 命令
-        // 格式1（带路径）: pluginInfo -edit -autoload true -pluginPath "C:/path/to/plug-ins" "mtoa";
-        // 格式2（无路径）: pluginInfo -edit -version "5.1.0" -autoload true "mtoa";
-
-        // 先尝试解析带 pluginPath 的格式
-        QRegularExpression reWithPath("pluginInfo.*?-pluginPath\\s+\"([^\"]+)\".*?\"([^\"]+)\"");
-        QRegularExpressionMatchIterator it = reWithPath.globalMatch(content);
-
         int count = 0;
-        while (it.hasNext()) {
-            QRegularExpressionMatch match = it.next();
-            QString pluginPath = match.captured(1);
-            QString pluginName = match.captured(2);
 
-            qDebug() << "  [带路径] 找到:" << pluginName << "->" << pluginPath;
-            pluginMap[pluginName] = pluginPath;
-            count++;
-        }
-
-        // 再解析不带 pluginPath 的格式（插件名称在最后的引号中）
-        QRegularExpression reWithoutPath("pluginInfo\\s+[^\"]*\"([^\"]+)\"\\s*;");
-        it = reWithoutPath.globalMatch(content);
+        // 格式1: evalDeferred("autoLoadPlugin(\"\", \"mtoa\", \"mtoa\")");
+        //  这是 Maya 2022+ 的格式，没有路径信息
+        QRegularExpression reEvalDeferred("autoLoadPlugin\\([^,]*,\\s*\"([^\"]+)\"");
+        QRegularExpressionMatchIterator it = reEvalDeferred.globalMatch(content);
 
         while (it.hasNext()) {
             QRegularExpressionMatch match = it.next();
             QString pluginName = match.captured(1);
 
-            // 如果这个插件还没有被添加（避免重复）
             if (!pluginMap.contains(pluginName)) {
-                // 没有明确路径，我们需要搜索常见位置
-                qDebug() << "  [无路径] 找到:" << pluginName << "(需要搜索路径)";
+                qDebug() << "  [evalDeferred格式] 找到:" << pluginName << "(需要搜索路径)";
                 pluginMap[pluginName] = "";  // 空路径，稍后搜索
                 count++;
             }
+        }
+
+        // 格式2: pluginInfo -edit -pluginPath "C:/path/to/plug-ins" "mtoa";
+        //  这是较旧的格式，包含路径信息
+        QRegularExpression reWithPath("pluginInfo.*?-pluginPath\\s+\"([^\"]+)\".*?\"([^\"]+)\"");
+        it = reWithPath.globalMatch(content);
+
+        while (it.hasNext()) {
+            QRegularExpressionMatch match = it.next();
+            QString pluginPath = match.captured(1);
+            QString pluginName = match.captured(2);
+
+            qDebug() << "  [pluginInfo格式] 找到:" << pluginName << "->" << pluginPath;
+            pluginMap[pluginName] = pluginPath;
+            count++;
         }
 
         qDebug() << "  共解析到" << count << "个插件配置";
