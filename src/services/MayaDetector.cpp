@@ -217,13 +217,43 @@ QStringList MayaDetector::detectPlugins(const MayaSoftwareInfo &mayaInfo)
             // 检查插件文件是否存在
             QString fullPluginPath;
 
-            // 尝试直接路径
-            if (QFile::exists(pluginPath + "/" + pluginName + ".mll")) {
-                fullPluginPath = pluginPath + "/" + pluginName + ".mll";
-            } else if (QFile::exists(pluginPath + "/" + pluginName + ".py")) {
-                fullPluginPath = pluginPath + "/" + pluginName + ".py";
-            } else if (QFile::exists(pluginPath + "/" + pluginName + ".bundle")) {
-                fullPluginPath = pluginPath + "/" + pluginName + ".bundle";
+            // 如果有明确路径，先尝试
+            if (!pluginPath.isEmpty()) {
+                if (QFile::exists(pluginPath + "/" + pluginName + ".mll")) {
+                    fullPluginPath = pluginPath + "/" + pluginName + ".mll";
+                } else if (QFile::exists(pluginPath + "/" + pluginName + ".py")) {
+                    fullPluginPath = pluginPath + "/" + pluginName + ".py";
+                } else if (QFile::exists(pluginPath + "/" + pluginName + ".bundle")) {
+                    fullPluginPath = pluginPath + "/" + pluginName + ".bundle";
+                }
+            }
+
+            // 如果没有路径或路径中找不到，搜索常见位置
+            if (fullPluginPath.isEmpty()) {
+                QStringList searchPaths;
+
+                // Maya 安装目录
+                searchPaths << mayaInfo.installPath + "/plug-ins";
+                searchPaths << mayaInfo.installPath + "/bin/plug-ins";
+
+                // 用户插件目录
+                searchPaths << QDir::homePath() + "/Documents/maya/" + mayaInfo.version + "/plug-ins";
+
+                // 第三方插件常见位置
+                searchPaths << "C:/Program Files/Autodesk/Arnold/maya" + mayaInfo.version + "/plug-ins";
+                searchPaths << "C:/solidangle/mtoadeploy/" + mayaInfo.version + "/plug-ins";
+
+                for (const QString &searchPath : searchPaths) {
+                    if (QFile::exists(searchPath + "/" + pluginName + ".mll")) {
+                        fullPluginPath = searchPath + "/" + pluginName + ".mll";
+                        qDebug() << "    在搜索路径中找到:" << fullPluginPath;
+                        break;
+                    } else if (QFile::exists(searchPath + "/" + pluginName + ".py")) {
+                        fullPluginPath = searchPath + "/" + pluginName + ".py";
+                        qDebug() << "    在搜索路径中找到:" << fullPluginPath;
+                        break;
+                    }
+                }
             }
 
             // 格式化插件名称
@@ -798,10 +828,13 @@ QMap<QString, QString> MayaDetector::readPluginPrefs(const QString &mayaVersion)
 
         qDebug() << "  pluginPrefs.mel 文件大小:" << content.size() << "字节";
 
-        // 解析 pluginInfo 命令
-        // 示例: pluginInfo -edit -autoload true -pluginPath "C:/solidangle/mtoadeploy/2022/plug-ins" "mtoa";
-        QRegularExpression re("pluginInfo.*?-pluginPath\\s+\"([^\"]+)\".*?\"([^\"]+)\"");
-        QRegularExpressionMatchIterator it = re.globalMatch(content);
+        // 解析两种格式的 pluginInfo 命令
+        // 格式1（带路径）: pluginInfo -edit -autoload true -pluginPath "C:/path/to/plug-ins" "mtoa";
+        // 格式2（无路径）: pluginInfo -edit -version "5.1.0" -autoload true "mtoa";
+
+        // 先尝试解析带 pluginPath 的格式
+        QRegularExpression reWithPath("pluginInfo.*?-pluginPath\\s+\"([^\"]+)\".*?\"([^\"]+)\"");
+        QRegularExpressionMatchIterator it = reWithPath.globalMatch(content);
 
         int count = 0;
         while (it.hasNext()) {
@@ -809,9 +842,26 @@ QMap<QString, QString> MayaDetector::readPluginPrefs(const QString &mayaVersion)
             QString pluginPath = match.captured(1);
             QString pluginName = match.captured(2);
 
-            qDebug() << "  从 pluginPrefs 找到:" << pluginName << "->" << pluginPath;
+            qDebug() << "  [带路径] 找到:" << pluginName << "->" << pluginPath;
             pluginMap[pluginName] = pluginPath;
             count++;
+        }
+
+        // 再解析不带 pluginPath 的格式（插件名称在最后的引号中）
+        QRegularExpression reWithoutPath("pluginInfo\\s+[^\"]*\"([^\"]+)\"\\s*;");
+        it = reWithoutPath.globalMatch(content);
+
+        while (it.hasNext()) {
+            QRegularExpressionMatch match = it.next();
+            QString pluginName = match.captured(1);
+
+            // 如果这个插件还没有被添加（避免重复）
+            if (!pluginMap.contains(pluginName)) {
+                // 没有明确路径，我们需要搜索常见位置
+                qDebug() << "  [无路径] 找到:" << pluginName << "(需要搜索路径)";
+                pluginMap[pluginName] = "";  // 空路径，稍后搜索
+                count++;
+            }
         }
 
         qDebug() << "  共解析到" << count << "个插件配置";
