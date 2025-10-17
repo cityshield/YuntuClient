@@ -19,6 +19,7 @@
 #include <QApplication>
 #include <QTimer>
 #include <QSet>
+#include <QStandardPaths>
 
 MayaDetectionDialog::MayaDetectionDialog(QWidget *parent)
     : QDialog(parent)
@@ -77,6 +78,12 @@ void MayaDetectionDialog::onStartDetection()
     m_resultText->append(QString::fromUtf8("🔍 开始检测 Maya 环境...\n"));
     m_resultText->append(QString::fromUtf8("检测时间: %1\n")
         .arg(QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss")));
+
+    // 显示日志文件位置
+    QString logPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/logs";
+    m_resultText->append(QString::fromUtf8("\n📝 详细日志位置: %1\n").arg(logPath));
+    m_resultText->append(QString::fromUtf8("   （如果检测有问题，请查看日志文件中的 qDebug 输出）\n"));
+
     m_resultText->append(addSeparator());
 
     // 禁用按钮
