@@ -38,6 +38,13 @@ QVector<MayaSoftwareInfo> MayaDetector::detectAllMayaVersions()
     // 扫描常用安装目录
     mayaPaths.append(scanCommonInstallPaths());
 
+    // 如果没找到任何 Maya,使用暴力搜索作为最后手段
+    if (mayaPaths.isEmpty()) {
+        qDebug() << "常规方法未检测到 Maya，启动暴力搜索...";
+        emit detectProgress(20, "启动全盘搜索 Maya...");
+        mayaPaths.append(bruteForceSearchMaya());
+    }
+
     // 去重
     mayaPaths.removeDuplicates();
 
@@ -1253,4 +1260,81 @@ QStringList MayaDetector::bruteForceSearchPlugin(const QString &pluginFileName, 
 #endif
 
     return foundPaths;
+}
+
+QStringList MayaDetector::bruteForceSearchMaya()
+{
+    QStringList mayaPaths;
+
+#ifdef Q_OS_WIN
+    qDebug() << "========== 开始暴力搜索 Maya 安装 ==========";
+
+    // 获取所有可用驱动器
+    QFileInfoList drives = QDir::drives();
+    qDebug() << "可用驱动器:" << drives.size() << "个";
+
+    for (const QFileInfo &drive : drives) {
+        QString driveLetter = drive.absolutePath();  // 例如 "C:/", "D:/"
+        qDebug() << "\n正在搜索驱动器:" << driveLetter;
+
+        // 定义要搜索的基础路径
+        QStringList searchBasePaths;
+        searchBasePaths << driveLetter + "Program Files";
+        searchBasePaths << driveLetter + "Program Files (x86)";
+        searchBasePaths << driveLetter;  // 有些用户直接安装在根目录
+
+        for (const QString &basePath : searchBasePaths) {
+            QDir baseDir(basePath);
+            if (!baseDir.exists()) {
+                continue;
+            }
+
+            qDebug() << "  搜索基础路径:" << basePath;
+
+            // 使用 QDirIterator 递归搜索 maya.exe
+            // 限制深度为3层避免搜索太深太慢
+            // 例如: D:/Program Files/Autodesk/Maya2022/bin/maya.exe (深度4层)
+            QDirIterator it(basePath,
+                           QStringList() << "maya.exe",
+                           QDir::Files,
+                           QDirIterator::Subdirectories);
+
+            while (it.hasNext()) {
+                QString mayaExePath = it.next();
+                qDebug() << "    ✓✓✓ 找到 maya.exe:" << mayaExePath;
+
+                // 从 maya.exe 路径推导出安装路径
+                // maya.exe 在 {安装路径}/bin/maya.exe
+                QFileInfo fileInfo(mayaExePath);
+                QDir binDir = fileInfo.dir();  // bin 目录
+                if (binDir.dirName().toLower() == "bin") {
+                    binDir.cdUp();  // 回到安装目录
+                    QString mayaInstallPath = binDir.absolutePath();
+
+                    // 验证这是一个合法的 Maya 安装目录（应该包含版本号）
+                    if (mayaInstallPath.contains(QRegularExpression("Maya\\d{4}", QRegularExpression::CaseInsensitiveOption))) {
+                        qDebug() << "      [有效 Maya 安装] 添加:" << mayaInstallPath;
+                        mayaPaths.append(mayaInstallPath);
+                    } else {
+                        qDebug() << "      [跳过] 路径不包含版本号:" << mayaInstallPath;
+                    }
+                }
+            }
+        }
+    }
+
+    mayaPaths.removeDuplicates();
+
+    if (mayaPaths.isEmpty()) {
+        qDebug() << "========== 暴力搜索未找到 Maya ==========\n";
+    } else {
+        qDebug() << "========== 暴力搜索找到" << mayaPaths.size() << "个 Maya 安装 ==========";
+        for (const QString &path : mayaPaths) {
+            qDebug() << "  -" << path;
+        }
+        qDebug() << "==========\n";
+    }
+#endif
+
+    return mayaPaths;
 }

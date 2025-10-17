@@ -221,4 +221,10 @@ private:
      * @return 找到的插件完整路径列表
      */
     QStringList bruteForceSearchPlugin(const QString &pluginFileName, const QString &mayaVersion);
+
+    /**
+     * @brief 暴力搜索 Maya 可执行文件（全盘扫描）
+     * @return 找到的 Maya 安装路径列表
+     */
+    QStringList bruteForceSearchMaya();
 };
