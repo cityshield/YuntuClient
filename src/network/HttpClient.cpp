@@ -378,20 +378,28 @@ void HttpClient::handleReply(QNetworkReply* reply,
         timer->stop();
 
         QString url = reply->url().toString();
+        QString path = reply->url().path();  // 提取路径部分用于 Toast 显示
+
+        int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
 
         if (reply->error() == QNetworkReply::NoError) {
             // 成功
             QByteArray responseData = reply->readAll();
             QJsonDocument doc = QJsonDocument::fromJson(responseData);
 
+            // 如果没有状态码，默认设置为 200
+            if (statusCode == 0) {
+                statusCode = 200;
+            }
+
             if (onSuccess) {
                 onSuccess(doc.object());
             }
 
             emit requestFinished(url, true);
+            emit apiResponse(path, statusCode, true);  // 发射 API 响应信号
         } else {
             // 错误
-            int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
             QString errorString = reply->errorString();
 
             qDebug() << "HTTP Error:" << statusCode << errorString;
@@ -401,6 +409,7 @@ void HttpClient::handleReply(QNetworkReply* reply,
             }
 
             emit requestFinished(url, false);
+            emit apiResponse(path, statusCode, false);  // 发射 API 响应信号
         }
 
         reply->deleteLater();

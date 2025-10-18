@@ -123,6 +123,14 @@ signals:
      */
     void requestFinished(const QString& url, bool success);
 
+    /**
+     * @brief API 响应信号（用于 Toast 通知）
+     * @param endpoint API 端点
+     * @param statusCode HTTP 状态码
+     * @param success 是否成功
+     */
+    void apiResponse(const QString& endpoint, int statusCode, bool success);
+
 private:
     HttpClient();
     ~HttpClient();

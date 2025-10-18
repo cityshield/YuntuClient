@@ -7,9 +7,11 @@
 #include "RegisterDialog.h"
 #include "MayaDetectionDialog.h"
 #include "../ThemeManager.h"
+#include "../components/ToastManager.h"
 #include "../../managers/AuthManager.h"
 #include "../../core/Logger.h"
 #include "../../core/Application.h"
+#include "../../network/HttpClient.h"
 #include <QPainter>
 #include <QPainterPath>
 #include <QMessageBox>
@@ -44,6 +46,15 @@ LoginWindow::LoginWindow(QWidget *parent)
     // 设置窗口居中
     setWindowFlag(Qt::FramelessWindowHint);  // 无边框窗口
     setAttribute(Qt::WA_TranslucentBackground);  // 透明背景
+
+    // 初始化 Toast Manager
+    ToastManager::instance().setMainWindow(this);
+
+    // 连接 HttpClient 的 apiResponse 信号到 ToastManager
+    connect(&HttpClient::instance(), &HttpClient::apiResponse,
+            [](const QString& endpoint, int statusCode, bool success) {
+                ToastManager::instance().showApiResponse(endpoint, statusCode, success);
+            });
 }
 
 LoginWindow::~LoginWindow()

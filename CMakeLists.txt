@@ -137,6 +137,8 @@ set(SOURCES
     src/ui/components/FluentDialog.cpp
     src/ui/components/TaskItemWidget.cpp
     src/ui/components/TitleBar.cpp
+    src/ui/components/ToastWidget.cpp
+    src/ui/components/ToastManager.cpp
 
     # UI - Views
     src/ui/views/LoginWindow.cpp
@@ -185,6 +187,8 @@ set(HEADERS
     src/ui/components/FluentDialog.h
     src/ui/components/TaskItemWidget.h
     src/ui/components/TitleBar.h
+    src/ui/components/ToastWidget.h
+    src/ui/components/ToastManager.h
 
     # UI - Views
     src/ui/views/LoginWindow.h

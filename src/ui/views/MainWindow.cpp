@@ -8,12 +8,14 @@
 #include "TaskDetailDialog.h"
 #include "../ThemeManager.h"
 #include "../components/TaskItemWidget.h"
+#include "../components/ToastManager.h"
 #include "../../managers/AuthManager.h"
 #include "../../managers/TaskManager.h"
 #include "../../managers/UserManager.h"
 #include "../../models/Task.h"
 #include "../../core/Logger.h"
 #include "../../core/Application.h"
+#include "../../network/HttpClient.h"
 #include <QPainter>
 #include <QPainterPath>
 #include <QMouseEvent>
@@ -58,6 +60,15 @@ MainWindow::MainWindow(QWidget *parent)
     QScreen *screen = QApplication::primaryScreen();
     QPoint screenCenter = screen->geometry().center();
     move(screenCenter - rect().center());
+
+    // 初始化 Toast Manager
+    ToastManager::instance().setMainWindow(this);
+
+    // 连接 HttpClient 的 apiResponse 信号到 ToastManager
+    connect(&HttpClient::instance(), &HttpClient::apiResponse,
+            [](const QString& endpoint, int statusCode, bool success) {
+                ToastManager::instance().showApiResponse(endpoint, statusCode, success);
+            });
 
     // 初始化管理器
     TaskManager::instance().initialize();
