@@ -30,11 +30,6 @@ jobs:
     - name: Setup vcpkg
       uses: lukka/run-vcpkg@v11
 
-    - name: Install Aliyun OSS C++ SDK
-      run: |
-        vcpkg install aliyun-oss-cpp-sdk:x64-windows
-      shell: powershell
-
     - name: Verify Qt installation
       run: |
         Write-Host "Qt6_DIR: $env:Qt6_DIR"
