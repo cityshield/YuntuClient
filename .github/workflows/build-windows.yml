@@ -168,6 +168,19 @@ jobs:
           Copy-Item "$ossPath\bin\*.dll" . -Force
           Write-Host "OSS SDK DLLs copied"
         }
+
+        # Copy OSS SDK third-party dependencies (OpenSSL, libcurl, zlib)
+        $ossSourcePath = "$env:GITHUB_WORKSPACE\aliyun-oss-cpp-sdk\third_party\lib\x64"
+        if (Test-Path $ossSourcePath) {
+          Write-Host "Copying OSS SDK third-party DLLs from source..."
+          Copy-Item "$ossSourcePath\libeay32.dll" . -ErrorAction SilentlyContinue
+          Copy-Item "$ossSourcePath\ssleay32.dll" . -ErrorAction SilentlyContinue
+          Copy-Item "$ossSourcePath\libcurl.dll" . -ErrorAction SilentlyContinue
+          Copy-Item "$ossSourcePath\zlibwapi.dll" . -ErrorAction SilentlyContinue
+          Write-Host "Third-party DLLs copied"
+        } else {
+          Write-Host "WARNING: OSS SDK third-party lib directory not found"
+        }
       shell: powershell
 
     - name: Get UTC+8 timestamp
