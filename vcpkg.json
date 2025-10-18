@@ -1,9 +1,0 @@
-{
-  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
-  "name": "yuntuclient",
-  "version": "1.0.0",
-  "dependencies": [
-    "aliyun-oss-cpp-sdk"
-  ],
-  "builtin-baseline": "f176b58f35a75f9f8f54099cd9df97d2e2793a2e"
-}

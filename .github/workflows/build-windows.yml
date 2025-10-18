@@ -27,8 +27,38 @@ jobs:
       with:
         arch: x64
 
-    - name: Setup vcpkg
-      uses: lukka/run-vcpkg@v11
+    - name: Cache OSS SDK
+      id: cache-oss-sdk
+      uses: actions/cache@v4
+      with:
+        path: |
+          oss-sdk-install
+        key: oss-sdk-1.10.1-win-${{ runner.os }}
+
+    - name: Build Aliyun OSS C++ SDK
+      if: steps.cache-oss-sdk.outputs.cache-hit != 'true'
+      run: |
+        Write-Host "📦 Building Aliyun OSS C++ SDK 1.10.1..."
+
+        # Clone SDK
+        git clone --depth 1 --branch 1.10.1 https://github.com/aliyun/aliyun-oss-cpp-sdk.git
+        cd aliyun-oss-cpp-sdk
+
+        # Create build directory
+        New-Item -ItemType Directory -Path build -Force
+        cd build
+
+        # Configure with CMake
+        cmake .. -G "Visual Studio 17 2022" -A x64 `
+          -DCMAKE_BUILD_TYPE=Release `
+          -DCMAKE_INSTALL_PREFIX="$env:GITHUB_WORKSPACE\oss-sdk-install" `
+          -DBUILD_SHARED_LIBS=ON
+
+        # Build and install
+        cmake --build . --config Release --target install
+
+        Write-Host "✅ OSS SDK built and installed"
+      shell: powershell
 
     - name: Verify Qt installation
       run: |
@@ -65,9 +95,12 @@ jobs:
     - name: Configure CMake
       run: |
         cd build-test
+        $ossPath = "$env:GITHUB_WORKSPACE\oss-sdk-install"
+        $prefixPath = "$env:Qt6_DIR;$ossPath"
+
         cmake ..\build-test-src -G "Visual Studio 17 2022" -A x64 `
-          -DCMAKE_PREFIX_PATH="$env:Qt6_DIR" `
-          -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
+          -DCMAKE_PREFIX_PATH="$prefixPath" `
+          -DCMAKE_BUILD_TYPE=Release
       shell: powershell
 
     - name: Build
@@ -83,6 +116,14 @@ jobs:
         Copy-Item "$env:Qt6_DIR\bin\Qt6Network.dll" .
         Copy-Item "$env:Qt6_DIR\bin\Qt6WebSockets.dll" .
         Copy-Item "$env:Qt6_DIR\bin\Qt6Sql.dll" .
+
+        # Copy OSS SDK DLLs
+        $ossPath = "$env:GITHUB_WORKSPACE\oss-sdk-install"
+        if (Test-Path "$ossPath\bin") {
+          Write-Host "Copying OSS SDK DLLs..."
+          Copy-Item "$ossPath\bin\*.dll" . -Force
+          Write-Host "✓ OSS SDK DLLs copied"
+        }
       shell: powershell
 
     - name: Get UTC+8 timestamp
