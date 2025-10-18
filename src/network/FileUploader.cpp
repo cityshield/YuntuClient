@@ -204,7 +204,11 @@ void FileUploader::uploadChunk(int chunkIndex)
     // 使用 QFutureWatcher 监听后台任务完成
     QFutureWatcher<QByteArray>* watcher = new QFutureWatcher<QByteArray>(this);
 
-    connect(watcher, &QFutureWatcher<QByteArray>::finished, this, [this, chunkIndex, chunk, watcher]() {
+    // 按值捕获关键数据，避免引用失效
+    qint64 chunkOffset = chunk.offset;
+    qint64 chunkSize = chunk.size;
+
+    connect(watcher, &QFutureWatcher<QByteArray>::finished, this, [this, chunkIndex, chunkOffset, chunkSize, watcher]() {
         QByteArray hash = watcher->result();
         watcher->deleteLater();
 
@@ -227,8 +231,8 @@ void FileUploader::uploadChunk(int chunkIndex)
         HttpClient::instance().uploadChunk(
             "/api/v1/files/upload/chunk",
             m_filePath,
-            chunk.offset,
-            chunk.size,
+            chunkOffset,
+            chunkSize,
             fields,
             [this, chunkIndex](const QJsonObject& response) {
                 // 上传成功
