@@ -38,7 +38,7 @@ jobs:
     - name: Build Aliyun OSS C++ SDK
       if: steps.cache-oss-sdk.outputs.cache-hit != 'true'
       run: |
-        Write-Host "📦 Building Aliyun OSS C++ SDK 1.10.1..."
+        Write-Host "Building Aliyun OSS C++ SDK 1.10.1..."
 
         # Clone SDK
         git clone --depth 1 --branch 1.10.1 https://github.com/aliyun/aliyun-oss-cpp-sdk.git
@@ -57,7 +57,7 @@ jobs:
         # Build and install
         cmake --build . --config Release --target install
 
-        Write-Host "✅ OSS SDK built and installed"
+        Write-Host "OSS SDK built and installed successfully"
       shell: powershell
 
     - name: Verify Qt installation
@@ -65,15 +65,15 @@ jobs:
         Write-Host "Qt6_DIR: $env:Qt6_DIR"
         Write-Host "Checking Qt installation..."
         if (Test-Path "$env:Qt6_DIR\bin\qmake.exe") {
-          Write-Host "✓ qmake.exe found"
+          Write-Host "qmake.exe found"
         } else {
-          Write-Host "✗ qmake.exe NOT found!"
+          Write-Host "qmake.exe NOT found!"
         }
         if (Test-Path "$env:Qt6_DIR\lib\cmake\Qt6") {
-          Write-Host "✓ Qt6 CMake config found"
+          Write-Host "Qt6 CMake config found"
           Get-ChildItem "$env:Qt6_DIR\lib\cmake" -Directory | Select-Object Name
         } else {
-          Write-Host "✗ Qt6 CMake config NOT found!"
+          Write-Host "Qt6 CMake config NOT found!"
         }
       shell: powershell
 
@@ -122,7 +122,7 @@ jobs:
         if (Test-Path "$ossPath\bin") {
           Write-Host "Copying OSS SDK DLLs..."
           Copy-Item "$ossPath\bin\*.dll" . -Force
-          Write-Host "✓ OSS SDK DLLs copied"
+          Write-Host "OSS SDK DLLs copied"
         }
       shell: powershell
 
