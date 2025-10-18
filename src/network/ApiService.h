@@ -179,6 +179,14 @@ public:
     // =============== 文件相关 ===============
 
     /**
+     * @brief 获取OSS上传凭证（STS临时授权）
+     */
+    void getUploadCredentials(const QString& taskId,
+                             const QString& fileName,
+                             SuccessCallback onSuccess = nullptr,
+                             ErrorCallback onError = nullptr);
+
+    /**
      * @brief 生成文件下载URL
      */
     void generateDownloadUrl(const QString& taskId,

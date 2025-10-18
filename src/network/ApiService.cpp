@@ -219,6 +219,18 @@ void ApiService::getTaskLogs(const QString& taskId,
 
 // =============== 文件相关 ===============
 
+void ApiService::getUploadCredentials(const QString& taskId,
+                                     const QString& fileName,
+                                     SuccessCallback onSuccess,
+                                     ErrorCallback onError)
+{
+    QJsonObject data;
+    data["taskId"] = taskId;
+    data["fileName"] = fileName;
+
+    HttpClient::instance().post("/api/v1/files/get-upload-credentials", data, onSuccess, onError);
+}
+
 void ApiService::generateDownloadUrl(const QString& taskId,
                                     const QString& fileName,
                                     SuccessCallback onSuccess,
