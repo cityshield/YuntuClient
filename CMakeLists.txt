@@ -33,11 +33,24 @@ else()
         add_definitions(-DENABLE_OSS_SDK)
     else()
         # 尝试手动查找（用于源码编译安装）
+        # 库名：alibabacloud-oss-cpp-sdk（由 TARGET_OUTPUT_NAME_PREFIX + PROJECT_NAME 组成）
         # Windows 下查找 .lib 文件，Linux/macOS 下查找 .so/.dylib
         if(WIN32)
-            set(OSS_SDK_LIB_NAMES cpp-sdk.lib)
+            set(OSS_SDK_LIB_NAMES
+                alibabacloud-oss-cpp-sdk.lib
+                alibabacloud-oss-cpp-sdk
+                cpp-sdk.lib
+                cpp-sdk
+            )
         else()
-            set(OSS_SDK_LIB_NAMES cpp-sdk libcpp-sdk.so libcpp-sdk.dylib)
+            set(OSS_SDK_LIB_NAMES
+                alibabacloud-oss-cpp-sdk
+                libalibabacloud-oss-cpp-sdk.so
+                libalibabacloud-oss-cpp-sdk.dylib
+                cpp-sdk
+                libcpp-sdk.so
+                libcpp-sdk.dylib
+            )
         endif()
 
         find_library(OSS_CPP_SDK_LIBRARY
@@ -64,20 +77,23 @@ else()
             set(ENABLE_OSS_SDK ON)
             add_definitions(-DENABLE_OSS_SDK)
 
-            # 创建导入目标
-            add_library(cpp-sdk SHARED IMPORTED)
+            # 创建导入目标（使用统一名称以便链接）
+            add_library(alibabacloud-oss-cpp-sdk-imported SHARED IMPORTED)
             if(WIN32)
                 # Windows 需要同时设置 .lib 和 .dll
-                set_target_properties(cpp-sdk PROPERTIES
+                set_target_properties(alibabacloud-oss-cpp-sdk-imported PROPERTIES
                     IMPORTED_IMPLIB "${OSS_CPP_SDK_LIBRARY}"
                     INTERFACE_INCLUDE_DIRECTORIES "${OSS_CPP_SDK_INCLUDE_DIR}"
                 )
             else()
-                set_target_properties(cpp-sdk PROPERTIES
+                set_target_properties(alibabacloud-oss-cpp-sdk-imported PROPERTIES
                     IMPORTED_LOCATION "${OSS_CPP_SDK_LIBRARY}"
                     INTERFACE_INCLUDE_DIRECTORIES "${OSS_CPP_SDK_INCLUDE_DIR}"
                 )
             endif()
+
+            # 添加别名以支持多种链接方式
+            add_library(cpp-sdk ALIAS alibabacloud-oss-cpp-sdk-imported)
         else()
             message(WARNING "Aliyun OSS C++ SDK not found")
             message(WARNING "  Tried find_package and manual search")
@@ -225,18 +241,29 @@ target_link_libraries(${PROJECT_NAME}
 # 链接阿里云 OSS SDK（如果找到）
 if(ENABLE_OSS_SDK)
     if(TARGET alibabacloud-oss-cpp-sdk::alibabacloud-oss-cpp-sdk)
+        # vcpkg 安装的包
         target_link_libraries(${PROJECT_NAME}
             alibabacloud-oss-cpp-sdk::alibabacloud-oss-cpp-sdk
         )
+        message(STATUS "Linking with alibabacloud-oss-cpp-sdk::alibabacloud-oss-cpp-sdk")
     elseif(TARGET aliyun-oss-cpp-sdk::aliyun-oss-cpp-sdk)
+        # vcpkg 安装的包（旧名称）
         target_link_libraries(${PROJECT_NAME}
             aliyun-oss-cpp-sdk::aliyun-oss-cpp-sdk
         )
+        message(STATUS "Linking with aliyun-oss-cpp-sdk::aliyun-oss-cpp-sdk")
+    elseif(TARGET alibabacloud-oss-cpp-sdk-imported)
+        # 手动查找并导入的库
+        target_link_libraries(${PROJECT_NAME}
+            alibabacloud-oss-cpp-sdk-imported
+        )
+        message(STATUS "Linking with alibabacloud-oss-cpp-sdk-imported")
     elseif(TARGET cpp-sdk)
-        # 某些版本可能使用 cpp-sdk 作为目标名
+        # 别名目标
         target_link_libraries(${PROJECT_NAME}
             cpp-sdk
         )
+        message(STATUS "Linking with cpp-sdk (alias)")
     else()
         message(WARNING "OSS SDK found but no known target available")
     endif()
