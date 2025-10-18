@@ -294,7 +294,42 @@ WebSocket: `wss://api.yuntu.com/ws/{userId}`
 
 ## 配置文件
 
-配置文件位置：
+### 服务器配置（config.ini）
+
+客户端需要配置服务器地址才能正常使用。配置文件位于程序根目录的 `config.ini`。
+
+#### 首次使用
+
+1. 首次启动时，程序会自动从 `config.ini.example` 复制创建 `config.ini`
+2. 编辑 `config.ini` 文件，修改服务器地址：
+
+```ini
+[Server]
+# 开发环境
+url=http://localhost:8000
+
+# 或生产环境
+# url=https://api.yuntucv.com
+
+api_prefix=/api/v1
+
+[Client]
+log_level=info
+log_retention_days=7
+auto_upload_logs=true
+log_upload_interval=30
+
+[Application]
+app_name=YuntuClient
+```
+
+3. 保存后重启客户端
+
+**注意**：`config.ini` 文件不会被提交到 Git，可安全保存您的本地配置。
+
+### 用户配置文件位置
+
+程序运行时的用户配置保存在：
 - Windows: `C:/Users/{用户名}/AppData/Roaming/YunTu/YuntuClient.ini`
 - macOS: `~/Library/Preferences/com.yuntu.YuntuClient.plist`
 
