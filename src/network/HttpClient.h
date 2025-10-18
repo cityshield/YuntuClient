@@ -87,6 +87,18 @@ public:
                    std::function<void(qint64, qint64)> onProgress = nullptr);
 
     /**
+     * @brief 上传文件分片（multipart/form-data，流式上传）
+     */
+    void uploadChunk(const QString& path,
+                    const QString& filePath,
+                    qint64 offset,
+                    qint64 size,
+                    const QMap<QString, QString>& fields = {},
+                    SuccessCallback onSuccess = nullptr,
+                    ErrorCallback onError = nullptr,
+                    std::function<void(qint64, qint64)> onProgress = nullptr);
+
+    /**
      * @brief 下载文件
      */
     void downloadFile(const QString& url,

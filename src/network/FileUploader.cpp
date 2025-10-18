@@ -10,7 +10,7 @@ FileUploader::FileUploader(QObject *parent)
     , m_file(nullptr)
     , m_fileSize(0)
     , m_chunkSize(5 * 1024 * 1024)  // 默认5MB
-    , m_maxConcurrency(3)  // 默认3个并发
+    , m_maxConcurrency(1)  // 降低并发数到1，避免内存峰值
     , m_maxRetries(3)  // 默认重试3次
     , m_uploadingCount(0)
     , m_completedCount(0)
@@ -57,7 +57,7 @@ void FileUploader::startUpload(const QString& filePath, const QString& taskId)
     m_lastUploadedBytes = 0;
 
     qDebug() << "FileUploader: 开始上传文件" << filePath;
-    qDebug() << "文件大小:" << m_fileSize << "字节";
+    qDebug() << "文件大小:" << m_fileSize << "字节" << "(" << (m_fileSize / 1024.0 / 1024.0) << "MB)";
 
     // 准备分片
     prepareChunks();
@@ -126,6 +126,9 @@ void FileUploader::prepareChunks()
     }
 
     qDebug() << "FileUploader: 分片数量:" << totalChunks;
+    qDebug() << "FileUploader: 每片大小:" << (m_chunkSize / 1024.0 / 1024.0) << "MB";
+    qDebug() << "FileUploader: 并发数:" << m_maxConcurrency;
+    qDebug() << "FileUploader: 预计峰值内存:" << (m_maxConcurrency * 0.5) << "MB (流式上传，已优化)";
 }
 
 void FileUploader::uploadNextChunk()
@@ -145,7 +148,7 @@ void FileUploader::uploadNextChunk()
     while (m_uploadingCount < m_maxConcurrency && m_completedCount + m_uploadingCount < m_chunks.size()) {
         // 查找下一个未上传的分片
         for (int i = 0; i < m_chunks.size(); ++i) {
-            if (!m_chunks[i].uploaded && m_chunkData.contains(i) == false) {
+            if (!m_chunks[i].uploaded) {
                 uploadChunk(i);
                 break;
             }
@@ -161,62 +164,75 @@ void FileUploader::uploadChunk(int chunkIndex)
 
     const ChunkInfo& chunk = m_chunks[chunkIndex];
 
-    qDebug() << "FileUploader: 准备上传分片" << chunkIndex << "/" << m_chunks.size();
+    qDebug() << "FileUploader: 开始上传分片" << chunkIndex << "/" << m_chunks.size()
+             << "偏移:" << chunk.offset << "大小:" << chunk.size;
 
     m_uploadingCount++;
 
-    // 使用 QtConcurrent 在后台线程读取文件和计算 MD5
-    // 这样不会阻塞 UI 线程
-    QFuture<QPair<QByteArray, QByteArray>> future = QtConcurrent::run([this, chunk]() -> QPair<QByteArray, QByteArray> {
-        // 在后台线程中执行耗时操作
+    // 使用 QtConcurrent 在后台线程计算 MD5（只需读取一次，不需要全部加载到内存）
+    QFuture<QByteArray> future = QtConcurrent::run([this, chunk]() -> QByteArray {
         QFile file(m_filePath);
         if (!file.open(QIODevice::ReadOnly)) {
-            return QPair<QByteArray, QByteArray>();
+            return QByteArray();
         }
 
-        file.seek(chunk.offset);
-        QByteArray chunkData = file.read(chunk.size);
+        if (!file.seek(chunk.offset)) {
+            file.close();
+            return QByteArray();
+        }
+
+        // 流式计算 MD5，每次读取 64KB
+        QCryptographicHash hash(QCryptographicHash::Md5);
+        qint64 remaining = chunk.size;
+        const qint64 bufferSize = 64 * 1024;  // 64KB 缓冲区
+        char buffer[bufferSize];
+
+        while (remaining > 0) {
+            qint64 toRead = qMin(bufferSize, remaining);
+            qint64 bytesRead = file.read(buffer, toRead);
+            if (bytesRead <= 0) {
+                break;
+            }
+            hash.addData(buffer, bytesRead);
+            remaining -= bytesRead;
+        }
+
         file.close();
-
-        // 计算 MD5
-        QByteArray hash = QCryptographicHash::hash(chunkData, QCryptographicHash::Md5).toHex();
-
-        return QPair<QByteArray, QByteArray>(chunkData, hash);
+        return hash.result().toHex();
     });
 
     // 使用 QFutureWatcher 监听后台任务完成
-    QFutureWatcher<QPair<QByteArray, QByteArray>>* watcher = new QFutureWatcher<QPair<QByteArray, QByteArray>>(this);
+    QFutureWatcher<QByteArray>* watcher = new QFutureWatcher<QByteArray>(this);
 
-    connect(watcher, &QFutureWatcher<QPair<QByteArray, QByteArray>>::finished, this, [this, chunkIndex, watcher]() {
-        QPair<QByteArray, QByteArray> result = watcher->result();
-        QByteArray chunkData = result.first;
-        QByteArray hash = result.second;
-
+    connect(watcher, &QFutureWatcher<QByteArray>::finished, this, [this, chunkIndex, chunk, watcher]() {
+        QByteArray hash = watcher->result();
         watcher->deleteLater();
 
-        if (chunkData.isEmpty()) {
-            qWarning() << "FileUploader: 读取分片" << chunkIndex << "失败";
+        if (hash.isEmpty()) {
+            qWarning() << "FileUploader: 计算分片" << chunkIndex << "MD5失败";
             onChunkUploaded(chunkIndex, false);
             return;
         }
 
-        qDebug() << "FileUploader: 开始上传分片" << chunkIndex << "/" << m_chunks.size();
+        qDebug() << "FileUploader: 分片" << chunkIndex << "MD5:" << QString::fromLatin1(hash);
 
-        m_chunkData[chunkIndex] = chunkData;
+        // 构造上传参数（使用 multipart/form-data 格式，流式上传）
+        QMap<QString, QString> fields;
+        fields["taskId"] = m_taskId;
+        fields["chunkIndex"] = QString::number(chunkIndex);
+        fields["totalChunks"] = QString::number(m_chunks.size());
+        fields["chunkHash"] = QString::fromLatin1(hash);
 
-        // 构造上传参数（使用JSON格式）
-        QJsonObject data;
-        data["taskId"] = m_taskId;
-        data["chunkIndex"] = chunkIndex;
-        data["totalChunks"] = m_chunks.size();
-        data["chunkHash"] = QString::fromLatin1(hash);
-        data["chunkData"] = QString::fromLatin1(chunkData.toBase64());
-
-        HttpClient::instance().post(
+        // 使用流式上传（不会将整个分片加载到内存）
+        HttpClient::instance().uploadChunk(
             "/api/v1/files/upload/chunk",
-            data,
+            m_filePath,
+            chunk.offset,
+            chunk.size,
+            fields,
             [this, chunkIndex](const QJsonObject& response) {
                 // 上传成功
+                qDebug() << "FileUploader: 分片" << chunkIndex << "上传成功";
                 onChunkUploaded(chunkIndex, true);
             },
             [this, chunkIndex](int statusCode, const QString& error) {
@@ -241,9 +257,6 @@ void FileUploader::onChunkUploaded(int chunkIndex, bool success)
 
         qint64 chunkSize = m_chunks[chunkIndex].size;
         m_uploadedBytes += chunkSize;
-
-        // 清理分片数据
-        m_chunkData.remove(chunkIndex);
 
         updateProgress();
 

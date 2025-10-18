@@ -134,6 +134,4 @@ private:
     qint64 m_lastUploadedBytes;
     QTimer* m_speedTimer;
     qint64 m_currentSpeed;
-
-    QMap<int, QByteArray> m_chunkData;
 };
