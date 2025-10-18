@@ -79,6 +79,18 @@ jobs:
         Copy-Item "$env:Qt6_DIR\plugins\platforms\qwindows.dll" platforms\
       shell: powershell
 
+    - name: Copy configuration files
+      run: |
+        cd build\Release
+        # 复制配置文件模板
+        Copy-Item "..\..\config.ini.example" .
+        Write-Host "✓ config.ini.example copied"
+
+        # 复制 README 文档
+        Copy-Item "..\..\README.md" .
+        Write-Host "✓ README.md copied"
+      shell: powershell
+
     - name: Get UTC+8 timestamp
       id: timestamp
       run: |
