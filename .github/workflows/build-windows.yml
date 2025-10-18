@@ -60,6 +60,43 @@ jobs:
         Write-Host "OSS SDK built and installed successfully"
       shell: powershell
 
+    - name: Verify OSS SDK Installation
+      run: |
+        $ossPath = "$env:GITHUB_WORKSPACE\oss-sdk-install"
+        Write-Host "=== Verifying OSS SDK Installation ==="
+        Write-Host "OSS SDK Install Path: $ossPath"
+
+        if (Test-Path $ossPath) {
+          Write-Host "OSS SDK directory exists"
+
+          # List directory structure
+          Write-Host "`nDirectory structure:"
+          Get-ChildItem $ossPath -Recurse -Depth 2 | Select-Object FullName
+
+          # Check for CMake config files
+          Write-Host "`nLooking for CMake config files:"
+          if (Test-Path "$ossPath\lib\cmake") {
+            Write-Host "Found lib\cmake directory"
+            Get-ChildItem "$ossPath\lib\cmake" -Recurse -Filter "*.cmake" | Select-Object FullName
+          } else {
+            Write-Host "WARNING: lib\cmake directory NOT found"
+          }
+
+          # Check for DLLs
+          if (Test-Path "$ossPath\bin") {
+            Write-Host "`nFound DLLs:"
+            Get-ChildItem "$ossPath\bin" -Filter "*.dll" | Select-Object Name
+          }
+
+          # Check for headers
+          if (Test-Path "$ossPath\include") {
+            Write-Host "`nFound headers in include directory"
+          }
+        } else {
+          Write-Host "ERROR: OSS SDK directory does not exist!"
+        }
+      shell: powershell
+
     - name: Verify Qt installation
       run: |
         Write-Host "Qt6_DIR: $env:Qt6_DIR"
@@ -98,9 +135,16 @@ jobs:
         $ossPath = "$env:GITHUB_WORKSPACE\oss-sdk-install"
         $prefixPath = "$env:Qt6_DIR;$ossPath"
 
+        Write-Host "=== CMake Configuration Debug Info ==="
+        Write-Host "CMAKE_PREFIX_PATH: $prefixPath"
+        Write-Host "OSS SDK Path: $ossPath"
+        Write-Host ""
+
         cmake ..\build-test-src -G "Visual Studio 17 2022" -A x64 `
           -DCMAKE_PREFIX_PATH="$prefixPath" `
-          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_BUILD_TYPE=Release `
+          --debug-find `
+          -DCMAKE_FIND_DEBUG_MODE=ON
       shell: powershell
 
     - name: Build
