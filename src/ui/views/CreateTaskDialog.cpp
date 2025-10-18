@@ -474,7 +474,7 @@ void CreateTaskDialog::createTask()
         [this](const QJsonObject& response) {
             // 任务创建成功，获取 taskId
             QString taskId = response["id"].toString();
-            m_task->setId(taskId);
+            m_task->setTaskId(taskId);
 
             Application::instance().logger()->info("CreateTaskDialog",
                 QString::fromUtf8("任务创建成功，ID: %1").arg(taskId));
