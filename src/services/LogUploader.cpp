@@ -2,6 +2,7 @@
 #include "../core/Application.h"
 #include "../core/Config.h"
 #include "../core/Logger.h"
+#include "../network/ApiService.h"
 #include <QFile>
 #include <QFileInfo>
 #include <QDateTime>
@@ -17,6 +18,7 @@ LogUploader::LogUploader(QObject *parent)
     , m_networkManager(new QNetworkAccessManager(this))
     , m_uploadCount(0)
     , m_totalCount(0)
+    , m_ossConfigValid(false)
 {
 }
 
@@ -48,7 +50,8 @@ QString LogUploader::generateOssSignature(
                          + ossHeaders
                          + resource;
 
-    QString secretKey = Application::instance().config()->ossSecretKey();
+    // 使用缓存的密钥
+    QString secretKey = m_ossAccessKeySecret;
 
     // 使用 HMAC-SHA1 签名
     QByteArray key = secretKey.toUtf8();
@@ -80,14 +83,12 @@ void LogUploader::uploadToOss(const QString& filePath, const QString& objectName
     QByteArray fileData = file.readAll();
     file.close();
 
-    // 获取 OSS 配置
-    QString accessKey = Application::instance().config()->ossAccessKey();
-    QString bucket = Application::instance().config()->ossBucket();
-    QString endpoint = Application::instance().config()->ossEndpoint();
-
-    if (accessKey.isEmpty() || bucket.isEmpty() || endpoint.isEmpty()) {
-        qWarning() << "OSS 配置不完整，accessKey/bucket/endpoint 为空";
-        emit logUploadFailed(filePath, QString::fromUtf8("OSS 配置不完整"));
+    // 检查 OSS 配置是否有效
+    if (!m_ossConfigValid) {
+        qWarning() << "OSS 配置无效，请先获取配置";
+        Application::instance().logger()->error("LogUploader",
+            QString::fromUtf8("OSS 配置无效，无法上传日志: %1").arg(filePath));
+        emit logUploadFailed(filePath, QString::fromUtf8("OSS 配置无效"));
 
         m_uploadCount++;
         if (m_uploadCount >= m_totalCount) {
@@ -95,6 +96,11 @@ void LogUploader::uploadToOss(const QString& filePath, const QString& objectName
         }
         return;
     }
+
+    // 使用缓存的 OSS 配置
+    QString accessKey = m_ossAccessKeyId;
+    QString bucket = m_ossBucketName;
+    QString endpoint = m_ossEndpoint;
 
     // 构造 OSS URL
     // 格式: https://{bucket}.{endpoint}/{objectName}
@@ -194,6 +200,18 @@ void LogUploader::uploadAllLogs(const QStringList& logFilePaths)
         return;
     }
 
+    // 保存待上传的日志路径
+    m_pendingLogPaths = logFilePaths;
+
+    // 如果没有 OSS 配置，先获取
+    if (!m_ossConfigValid) {
+        Application::instance().logger()->info("LogUploader",
+            QString::fromUtf8("正在从服务器获取 OSS 配置..."));
+        fetchOssConfig();
+        return;
+    }
+
+    // 已有配置，直接上传
     m_uploadCount = 0;
     m_totalCount = logFilePaths.size();
 
@@ -207,4 +225,62 @@ void LogUploader::uploadAllLogs(const QStringList& logFilePaths)
     for (const QString& logPath : logFilePaths) {
         uploadLog(logPath);
     }
+}
+
+void LogUploader::fetchOssConfig()
+{
+    Application::instance().logger()->info("LogUploader",
+        QString::fromUtf8("正在向服务器请求 OSS 配置..."));
+
+    ApiService::instance().getOssConfig(
+        [this](const QJsonObject& response) {
+            onOssConfigReceived(response);
+        },
+        [this](int statusCode, const QString& error) {
+            onOssConfigError(statusCode, error);
+        }
+    );
+}
+
+void LogUploader::onOssConfigReceived(const QJsonObject& response)
+{
+    // 解析 OSS 配置
+    m_ossAccessKeyId = response["access_key_id"].toString();
+    m_ossAccessKeySecret = response["access_key_secret"].toString();
+    m_ossBucketName = response["bucket_name"].toString();
+    m_ossEndpoint = response["endpoint"].toString();
+    m_ossBaseUrl = response["base_url"].toString();
+
+    // 验证配置完整性
+    if (m_ossAccessKeyId.isEmpty() || m_ossAccessKeySecret.isEmpty() ||
+        m_ossBucketName.isEmpty() || m_ossEndpoint.isEmpty()) {
+        Application::instance().logger()->error("LogUploader",
+            QString::fromUtf8("OSS 配置不完整，无法上传日志"));
+        m_ossConfigValid = false;
+        emit allLogsUploaded();
+        return;
+    }
+
+    m_ossConfigValid = true;
+
+    Application::instance().logger()->info("LogUploader",
+        QString::fromUtf8("OSS 配置获取成功，Bucket: %1, Endpoint: %2")
+            .arg(m_ossBucketName).arg(m_ossEndpoint));
+
+    // 开始上传待处理的日志
+    if (!m_pendingLogPaths.isEmpty()) {
+        uploadAllLogs(m_pendingLogPaths);
+    }
+}
+
+void LogUploader::onOssConfigError(int statusCode, const QString& error)
+{
+    Application::instance().logger()->error("LogUploader",
+        QString::fromUtf8("获取 OSS 配置失败 (状态码: %1): %2")
+            .arg(statusCode).arg(error));
+
+    m_ossConfigValid = false;
+
+    // 通知上传失败
+    emit allLogsUploaded();
 }

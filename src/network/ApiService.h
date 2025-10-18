@@ -186,6 +186,14 @@ public:
                             SuccessCallback onSuccess = nullptr,
                             ErrorCallback onError = nullptr);
 
+    // =============== 配置相关 ===============
+
+    /**
+     * @brief 获取 OSS 配置
+     */
+    void getOssConfig(SuccessCallback onSuccess = nullptr,
+                     ErrorCallback onError = nullptr);
+
 private:
     ApiService();
     ~ApiService();

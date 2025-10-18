@@ -227,3 +227,10 @@ void ApiService::generateDownloadUrl(const QString& taskId,
     QString path = QString("/api/v1/files/download/%1/%2").arg(taskId).arg(fileName);
     HttpClient::instance().get(path, {}, onSuccess, onError);
 }
+
+// =============== 配置相关 ===============
+
+void ApiService::getOssConfig(SuccessCallback onSuccess, ErrorCallback onError)
+{
+    HttpClient::instance().get("/api/v1/config/oss", {}, onSuccess, onError);
+}

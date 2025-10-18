@@ -3,6 +3,7 @@
 #include <QObject>
 #include <QString>
 #include <QStringList>
+#include <QJsonObject>
 #include <QNetworkAccessManager>
 
 /**
@@ -29,6 +30,11 @@ public:
      * @param logFilePaths 日志文件路径列表
      */
     void uploadAllLogs(const QStringList& logFilePaths);
+
+    /**
+     * @brief 检查并获取 OSS 配置（如果未缓存，则从服务器获取）
+     */
+    bool hasOssConfig() const { return m_ossConfigValid; }
 
 signals:
     /**
@@ -73,8 +79,34 @@ private:
      */
     void uploadToOss(const QString& filePath, const QString& objectName);
 
+    /**
+     * @brief 从服务器获取 OSS 配置
+     */
+    void fetchOssConfig();
+
+    /**
+     * @brief 处理获取 OSS 配置成功
+     */
+    void onOssConfigReceived(const QJsonObject& response);
+
+    /**
+     * @brief 处理获取 OSS 配置失败
+     */
+    void onOssConfigError(int statusCode, const QString& error);
+
 private:
     QNetworkAccessManager* m_networkManager;
     int m_uploadCount;
     int m_totalCount;
+
+    // OSS 配置缓存
+    bool m_ossConfigValid;
+    QString m_ossAccessKeyId;
+    QString m_ossAccessKeySecret;
+    QString m_ossBucketName;
+    QString m_ossEndpoint;
+    QString m_ossBaseUrl;
+
+    // 待上传日志队列（用于等待配置获取完成）
+    QStringList m_pendingLogPaths;
 };
