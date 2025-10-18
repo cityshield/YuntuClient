@@ -8,17 +8,20 @@
 #include "../../services/MayaDetector.h"
 #include "../../core/Logger.h"
 #include "../../core/Application.h"
+#include "../../network/ApiService.h"
 #include <QPainter>
 #include <QPainterPath>
 #include <QGraphicsDropShadowEffect>
 #include <QGridLayout>
 #include <QFileDialog>
 #include <QMessageBox>
+#include <QFileInfo>
 
 CreateTaskDialog::CreateTaskDialog(QWidget *parent)
     : QDialog(parent)
     , m_task(nullptr)
     , m_dialogPanel(nullptr)
+    , m_ossUploader(nullptr)
     , m_titleLabel(nullptr)
     , m_closeButton(nullptr)
     , m_taskNameEdit(nullptr)
@@ -145,8 +148,11 @@ void CreateTaskDialog::onCreateClicked()
         return;
     }
 
+    // 禁用创建按钮，防止重复点击
+    m_createButton->setEnabled(false);
+    m_createButton->setText(QString::fromUtf8("创建中..."));
+
     createTask();
-    accept();
 }
 
 void CreateTaskDialog::onCancelClicked()
@@ -450,6 +456,173 @@ void CreateTaskDialog::createTask()
 
     Application::instance().logger()->info("CreateTaskDialog",
         QString::fromUtf8("创建任务: %1").arg(m_task->taskName()));
+
+    // 调用 API 创建任务
+    QJsonObject taskData;
+    taskData["task_name"] = m_task->taskName();
+    taskData["scene_file"] = QFileInfo(m_task->sceneFile()).fileName();  // 只传文件名
+    taskData["start_frame"] = m_task->startFrame();
+    taskData["end_frame"] = m_task->endFrame();
+    taskData["frame_step"] = m_task->frameStep();
+    taskData["width"] = m_task->width();
+    taskData["height"] = m_task->height();
+    taskData["renderer"] = m_task->renderer();
+    taskData["output_format"] = m_task->outputFormat();
+    taskData["priority"] = static_cast<int>(m_task->priority());
+
+    ApiService::instance().createTask(taskData,
+        [this](const QJsonObject& response) {
+            // 任务创建成功，获取 taskId
+            QString taskId = response["id"].toString();
+            m_task->setId(taskId);
+
+            Application::instance().logger()->info("CreateTaskDialog",
+                QString::fromUtf8("任务创建成功，ID: %1").arg(taskId));
+
+            // 开始上传场景文件
+            startFileUpload(taskId);
+        },
+        [this](int code, const QString& error) {
+            // 任务创建失败
+            Application::instance().logger()->error("CreateTaskDialog",
+                QString::fromUtf8("任务创建失败: %1").arg(error));
+
+            QMessageBox::warning(this, QString::fromUtf8("创建失败"),
+                QString::fromUtf8("任务创建失败: %1").arg(error));
+
+            m_createButton->setEnabled(true);
+            m_createButton->setText(QString::fromUtf8("创建任务"));
+        });
+}
+
+void CreateTaskDialog::startFileUpload(const QString& taskId)
+{
+    QString sceneFile = m_task->sceneFile();
+    QFileInfo fileInfo(sceneFile);
+    QString fileName = fileInfo.fileName();
+
+    m_createButton->setText(QString::fromUtf8("获取上传凭证..."));
+
+    // 获取 STS 上传凭证
+    ApiService::instance().getUploadCredentials(taskId, fileName,
+        [this, taskId, fileName, sceneFile](const QJsonObject& response) {
+            // 解析 STS 凭证
+            QString accessKeyId = response["accessKeyId"].toString();
+            QString accessKeySecret = response["accessKeySecret"].toString();
+            QString securityToken = response["securityToken"].toString();
+            QString endpoint = response["endpoint"].toString();
+            QString bucketName = response["bucketName"].toString();
+            QString objectKey = response["objectKey"].toString();
+            QString expiration = response["expiration"].toString();
+
+            Application::instance().logger()->info("CreateTaskDialog",
+                QString::fromUtf8("获取上传凭证成功，开始上传文件: %1").arg(fileName));
+
+#ifdef ENABLE_OSS_SDK
+            // 使用 OSS SDK 上传
+            if (!m_ossUploader) {
+                m_ossUploader = new OSSUploader(this);
+
+                // 连接上传信号
+                connect(m_ossUploader, &OSSUploader::progressChanged,
+                        this, &CreateTaskDialog::onUploadProgress);
+                connect(m_ossUploader, &OSSUploader::uploadFinished,
+                        this, &CreateTaskDialog::onUploadFinished);
+                connect(m_ossUploader, &OSSUploader::uploadError,
+                        this, &CreateTaskDialog::onUploadError);
+            }
+
+            // 准备 STS 凭证
+            OSSUploader::STSCredentials credentials;
+            credentials.accessKeyId = accessKeyId;
+            credentials.accessKeySecret = accessKeySecret;
+            credentials.securityToken = securityToken;
+            credentials.endpoint = endpoint;
+            credentials.bucketName = bucketName;
+            credentials.objectKey = objectKey;
+            credentials.expiration = expiration;
+
+            // 配置上传参数
+            OSSUploader::UploadConfig config;
+            config.partSize = 10 * 1024 * 1024;  // 10MB
+            config.threadNum = 3;
+            config.maxRetries = 5;
+            config.enableCheckpoint = true;
+
+            m_createButton->setText(QString::fromUtf8("上传中 0%"));
+
+            // 开始上传
+            m_ossUploader->startUpload(sceneFile, taskId, credentials, config);
+#else
+            // OSS SDK 不可用，提示用户
+            Application::instance().logger()->warning("CreateTaskDialog",
+                QString::fromUtf8("OSS SDK 未启用，无法直接上传到 OSS"));
+
+            QMessageBox::warning(this, QString::fromUtf8("上传失败"),
+                QString::fromUtf8("OSS SDK 未启用，请重新编译客户端并启用 OSS SDK 支持"));
+
+            m_createButton->setEnabled(true);
+            m_createButton->setText(QString::fromUtf8("创建任务"));
+#endif
+        },
+        [this](int code, const QString& error) {
+            // 获取凭证失败
+            Application::instance().logger()->error("CreateTaskDialog",
+                QString::fromUtf8("获取上传凭证失败: %1").arg(error));
+
+            QMessageBox::warning(this, QString::fromUtf8("上传失败"),
+                QString::fromUtf8("获取上传凭证失败: %1").arg(error));
+
+            m_createButton->setEnabled(true);
+            m_createButton->setText(QString::fromUtf8("创建任务"));
+        });
+}
+
+void CreateTaskDialog::onUploadProgress(int progress, qint64 uploadedBytes, qint64 totalBytes)
+{
+    m_createButton->setText(QString::fromUtf8("上传中 %1%").arg(progress));
+
+    Application::instance().logger()->debug("CreateTaskDialog",
+        QString::fromUtf8("上传进度: %1% (%2/%3 bytes)")
+            .arg(progress)
+            .arg(uploadedBytes)
+            .arg(totalBytes));
+}
+
+void CreateTaskDialog::onUploadFinished(bool success)
+{
+    if (success) {
+        Application::instance().logger()->info("CreateTaskDialog",
+            QString::fromUtf8("文件上传成功"));
+
+        m_createButton->setText(QString::fromUtf8("上传完成"));
+
+        QMessageBox::information(this, QString::fromUtf8("创建成功"),
+            QString::fromUtf8("任务创建并上传成功！"));
+
+        accept();
+    } else {
+        Application::instance().logger()->error("CreateTaskDialog",
+            QString::fromUtf8("文件上传失败"));
+
+        QMessageBox::warning(this, QString::fromUtf8("上传失败"),
+            QString::fromUtf8("文件上传失败，请重试"));
+
+        m_createButton->setEnabled(true);
+        m_createButton->setText(QString::fromUtf8("创建任务"));
+    }
+}
+
+void CreateTaskDialog::onUploadError(const QString& error)
+{
+    Application::instance().logger()->error("CreateTaskDialog",
+        QString::fromUtf8("上传错误: %1").arg(error));
+
+    QMessageBox::warning(this, QString::fromUtf8("上传失败"),
+        QString::fromUtf8("上传错误: %1").arg(error));
+
+    m_createButton->setEnabled(true);
+    m_createButton->setText(QString::fromUtf8("创建任务"));
 }
 
 void CreateTaskDialog::connectSignals()
