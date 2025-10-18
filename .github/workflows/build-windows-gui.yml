@@ -37,7 +37,7 @@ jobs:
 
     - name: Install Aliyun OSS C++ SDK
       run: |
-        vcpkg install alibabacloud-oss-cpp-sdk:x64-windows
+        vcpkg install aliyun-oss-cpp-sdk:x64-windows
       shell: powershell
 
     - name: Verify Qt installation

@@ -25,8 +25,16 @@ if(alibabacloud-oss-cpp-sdk_FOUND)
     set(ENABLE_OSS_SDK ON)
     add_definitions(-DENABLE_OSS_SDK)
 else()
-    message(WARNING "Aliyun OSS C++ SDK not found. Install with: vcpkg install aliyun-oss-cpp-sdk")
-    set(ENABLE_OSS_SDK OFF)
+    # 尝试查找 aliyun-oss-cpp-sdk（vcpkg 包名）
+    find_package(aliyun-oss-cpp-sdk CONFIG)
+    if(aliyun-oss-cpp-sdk_FOUND)
+        message(STATUS "Found Aliyun OSS C++ SDK (vcpkg)")
+        set(ENABLE_OSS_SDK ON)
+        add_definitions(-DENABLE_OSS_SDK)
+    else()
+        message(WARNING "Aliyun OSS C++ SDK not found. Install with: vcpkg install aliyun-oss-cpp-sdk")
+        set(ENABLE_OSS_SDK OFF)
+    endif()
 endif()
 
 # 包含目录
@@ -156,9 +164,22 @@ target_link_libraries(${PROJECT_NAME}
 
 # 链接阿里云 OSS SDK（如果找到）
 if(ENABLE_OSS_SDK)
-    target_link_libraries(${PROJECT_NAME}
-        alibabacloud-oss-cpp-sdk::alibabacloud-oss-cpp-sdk
-    )
+    if(TARGET alibabacloud-oss-cpp-sdk::alibabacloud-oss-cpp-sdk)
+        target_link_libraries(${PROJECT_NAME}
+            alibabacloud-oss-cpp-sdk::alibabacloud-oss-cpp-sdk
+        )
+    elseif(TARGET aliyun-oss-cpp-sdk::aliyun-oss-cpp-sdk)
+        target_link_libraries(${PROJECT_NAME}
+            aliyun-oss-cpp-sdk::aliyun-oss-cpp-sdk
+        )
+    elseif(TARGET cpp-sdk)
+        # 某些版本可能使用 cpp-sdk 作为目标名
+        target_link_libraries(${PROJECT_NAME}
+            cpp-sdk
+        )
+    else()
+        message(WARNING "OSS SDK found but no known target available")
+    endif()
 endif()
 
 # Windows 特定设置
