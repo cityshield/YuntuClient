@@ -1,10 +1,29 @@
 #include "Config.h"
 #include <QStandardPaths>
+#include <QFile>
+#include <QCoreApplication>
+#include <QDir>
+#include <QDebug>
 
 Config::Config(QObject *parent)
     : QObject(parent)
 {
-    m_settings = new QSettings(this);
+    // 使用 config.ini 文件
+    QString configPath = QCoreApplication::applicationDirPath() + "/config.ini";
+
+    // 如果 config.ini 不存在，尝试从 config.ini.example 复制
+    if (!QFile::exists(configPath)) {
+        QString examplePath = QCoreApplication::applicationDirPath() + "/config.ini.example";
+        if (QFile::exists(examplePath)) {
+            qDebug() << "config.ini not found, copying from config.ini.example";
+            QFile::copy(examplePath, configPath);
+        } else {
+            qWarning() << "Neither config.ini nor config.ini.example found!";
+        }
+    }
+
+    m_settings = new QSettings(configPath, QSettings::IniFormat, this);
+    qDebug() << "Loading config from:" << configPath;
 }
 
 Config::~Config()
@@ -25,24 +44,31 @@ void Config::save()
 // API配置
 QString Config::apiBaseUrl() const
 {
-    return m_settings->value("api/baseUrl", "https://api.yuntucv.com").toString();
+    // 从 INI 文件的 Server 节读取
+    return m_settings->value("Server/url", "http://localhost:8000").toString();
 }
 
 void Config::setApiBaseUrl(const QString &url)
 {
-    m_settings->setValue("api/baseUrl", url);
+    m_settings->setValue("Server/url", url);
     emit configChanged();
 }
 
 QString Config::wsBaseUrl() const
 {
-    return m_settings->value("api/wsBaseUrl", "wss://api.yuntucv.com/ws").toString();
+    // 从服务器 URL 推导 WebSocket URL
+    QString serverUrl = apiBaseUrl();
+    QString wsUrl = serverUrl;
+    wsUrl.replace("http://", "ws://");
+    wsUrl.replace("https://", "wss://");
+    wsUrl += "/ws";
+    return wsUrl;
 }
 
 void Config::setWsBaseUrl(const QString &url)
 {
-    m_settings->setValue("api/wsBaseUrl", url);
-    emit configChanged();
+    // WebSocket URL 由 Server/url 自动推导，不需要单独设置
+    // 保留此方法以保持兼容性
 }
 
 // 用户配置

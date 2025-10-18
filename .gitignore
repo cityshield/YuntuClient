@@ -52,5 +52,8 @@ desktop.ini
 *.tmp
 *.temp
 
-# Environment variables
-.env
+# Configuration files (user-specific)
+config.ini
+
+# Test scripts
+test_upload_maya_file.py
