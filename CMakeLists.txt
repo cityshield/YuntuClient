@@ -19,21 +19,77 @@ find_package(Qt6 REQUIRED COMPONENTS
 )
 
 # 查找阿里云 OSS C++ SDK
-find_package(alibabacloud-oss-cpp-sdk CONFIG)
+# 尝试使用 find_package（用于 vcpkg 安装）
+find_package(alibabacloud-oss-cpp-sdk CONFIG QUIET)
 if(alibabacloud-oss-cpp-sdk_FOUND)
-    message(STATUS "Found Aliyun OSS C++ SDK")
+    message(STATUS "Found Aliyun OSS C++ SDK via find_package")
     set(ENABLE_OSS_SDK ON)
     add_definitions(-DENABLE_OSS_SDK)
 else()
-    # 尝试查找 aliyun-oss-cpp-sdk（vcpkg 包名）
-    find_package(aliyun-oss-cpp-sdk CONFIG)
+    find_package(aliyun-oss-cpp-sdk CONFIG QUIET)
     if(aliyun-oss-cpp-sdk_FOUND)
         message(STATUS "Found Aliyun OSS C++ SDK (vcpkg)")
         set(ENABLE_OSS_SDK ON)
         add_definitions(-DENABLE_OSS_SDK)
     else()
-        message(WARNING "Aliyun OSS C++ SDK not found. Install with: vcpkg install aliyun-oss-cpp-sdk")
-        set(ENABLE_OSS_SDK OFF)
+        # 尝试手动查找（用于源码编译安装）
+        # Windows 下查找 .lib 文件，Linux/macOS 下查找 .so/.dylib
+        if(WIN32)
+            set(OSS_SDK_LIB_NAMES cpp-sdk.lib)
+        else()
+            set(OSS_SDK_LIB_NAMES cpp-sdk libcpp-sdk.so libcpp-sdk.dylib)
+        endif()
+
+        find_library(OSS_CPP_SDK_LIBRARY
+            NAMES ${OSS_SDK_LIB_NAMES}
+            PATHS ${CMAKE_PREFIX_PATH}
+            PATH_SUFFIXES lib lib64
+            NO_DEFAULT_PATH
+        )
+        find_path(OSS_CPP_SDK_INCLUDE_DIR
+            NAMES alibabacloud/oss/OssClient.h
+            PATHS ${CMAKE_PREFIX_PATH}
+            PATH_SUFFIXES include
+            NO_DEFAULT_PATH
+        )
+
+        message(STATUS "OSS SDK search paths: ${CMAKE_PREFIX_PATH}")
+        message(STATUS "OSS SDK library search result: ${OSS_CPP_SDK_LIBRARY}")
+        message(STATUS "OSS SDK include search result: ${OSS_CPP_SDK_INCLUDE_DIR}")
+
+        if(OSS_CPP_SDK_LIBRARY AND OSS_CPP_SDK_INCLUDE_DIR)
+            message(STATUS "Found Aliyun OSS C++ SDK manually")
+            message(STATUS "  Library: ${OSS_CPP_SDK_LIBRARY}")
+            message(STATUS "  Include: ${OSS_CPP_SDK_INCLUDE_DIR}")
+            set(ENABLE_OSS_SDK ON)
+            add_definitions(-DENABLE_OSS_SDK)
+
+            # 创建导入目标
+            add_library(cpp-sdk SHARED IMPORTED)
+            if(WIN32)
+                # Windows 需要同时设置 .lib 和 .dll
+                set_target_properties(cpp-sdk PROPERTIES
+                    IMPORTED_IMPLIB "${OSS_CPP_SDK_LIBRARY}"
+                    INTERFACE_INCLUDE_DIRECTORIES "${OSS_CPP_SDK_INCLUDE_DIR}"
+                )
+            else()
+                set_target_properties(cpp-sdk PROPERTIES
+                    IMPORTED_LOCATION "${OSS_CPP_SDK_LIBRARY}"
+                    INTERFACE_INCLUDE_DIRECTORIES "${OSS_CPP_SDK_INCLUDE_DIR}"
+                )
+            endif()
+        else()
+            message(WARNING "Aliyun OSS C++ SDK not found")
+            message(WARNING "  Tried find_package and manual search")
+            message(WARNING "  CMAKE_PREFIX_PATH: ${CMAKE_PREFIX_PATH}")
+            if(NOT OSS_CPP_SDK_LIBRARY)
+                message(WARNING "  Library not found (searched for: ${OSS_SDK_LIB_NAMES})")
+            endif()
+            if(NOT OSS_CPP_SDK_INCLUDE_DIR)
+                message(WARNING "  Include directory not found")
+            endif()
+            set(ENABLE_OSS_SDK OFF)
+        endif()
     endif()
 endif()
 
