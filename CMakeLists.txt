@@ -18,6 +18,17 @@ find_package(Qt6 REQUIRED COMPONENTS
     Concurrent
 )
 
+# 查找阿里云 OSS C++ SDK
+find_package(alibabacloud-oss-cpp-sdk CONFIG)
+if(alibabacloud-oss-cpp-sdk_FOUND)
+    message(STATUS "Found Aliyun OSS C++ SDK")
+    set(ENABLE_OSS_SDK ON)
+    add_definitions(-DENABLE_OSS_SDK)
+else()
+    message(WARNING "Aliyun OSS C++ SDK not found. Install with: vcpkg install aliyun-oss-cpp-sdk")
+    set(ENABLE_OSS_SDK OFF)
+endif()
+
 # 包含目录
 include_directories(${CMAKE_SOURCE_DIR}/src)
 
@@ -36,6 +47,7 @@ set(SOURCES
     src/network/WebSocketClient.cpp
     src/network/ApiService.cpp
     src/network/FileUploader.cpp
+    src/network/OSSUploader.cpp
 
     # Models
     src/models/User.cpp
@@ -83,6 +95,7 @@ set(HEADERS
     src/network/WebSocketClient.h
     src/network/ApiService.h
     src/network/FileUploader.h
+    src/network/OSSUploader.h
 
     # Models
     src/models/User.h
@@ -140,6 +153,13 @@ target_link_libraries(${PROJECT_NAME}
     Qt6::WebSockets
     Qt6::Concurrent
 )
+
+# 链接阿里云 OSS SDK（如果找到）
+if(ENABLE_OSS_SDK)
+    target_link_libraries(${PROJECT_NAME}
+        alibabacloud-oss-cpp-sdk::alibabacloud-oss-cpp-sdk
+    )
+endif()
 
 # Windows 特定设置
 if(WIN32)
