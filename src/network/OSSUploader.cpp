@@ -79,10 +79,21 @@ void OSSUploader::startUpload(const QString& filePath,
     qDebug() << "OSS Bucket:" << credentials.bucketName;
     qDebug() << "OSS Object Key:" << credentials.objectKey;
 
-    // 创建 checkpoint 目录
+    // 创建 checkpoint 目录（使用绝对路径）
+    qDebug() << "Checkpoint 目录:" << config.checkpointDir;
     QDir checkpointDir(config.checkpointDir);
     if (!checkpointDir.exists()) {
-        checkpointDir.mkpath(".");
+        bool created = checkpointDir.mkpath(".");
+        if (created) {
+            qDebug() << "OSSUploader: 成功创建 checkpoint 目录";
+        } else {
+            QString error = QString("无法创建 checkpoint 目录: %1").arg(config.checkpointDir);
+            qWarning() << "OSSUploader:" << error;
+            emit uploadError(error);
+            return;
+        }
+    } else {
+        qDebug() << "OSSUploader: checkpoint 目录已存在";
     }
 
     // 初始化 OSS 客户端

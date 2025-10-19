@@ -16,6 +16,7 @@
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QFileInfo>
+#include <QDir>
 
 CreateTaskDialog::CreateTaskDialog(QWidget *parent)
     : QDialog(parent)
@@ -548,6 +549,15 @@ void CreateTaskDialog::startFileUpload(const QString& taskId)
             config.threadNum = 3;
             config.maxRetries = 5;
             config.enableCheckpoint = true;
+
+            // 使用临时目录存储 checkpoint 文件（绝对路径）
+            config.checkpointDir = QDir::tempPath() + "/YuntuClient/upload_checkpoints";
+
+            // 确保目录存在
+            QDir checkpointDir(config.checkpointDir);
+            if (!checkpointDir.exists()) {
+                checkpointDir.mkpath(".");
+            }
 
             m_createButton->setText(QString::fromUtf8("上传中 0%"));
 
