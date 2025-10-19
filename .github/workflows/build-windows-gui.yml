@@ -36,7 +36,7 @@ jobs:
       with:
         path: |
           oss-sdk-install
-        key: oss-sdk-1.10.1-win-${{ runner.os }}
+        key: oss-sdk-1.10.1-win-v2-${{ runner.os }}
 
     - name: Build Aliyun OSS C++ SDK
       if: steps.cache-oss-sdk.outputs.cache-hit != 'true'
@@ -137,6 +137,16 @@ jobs:
           -DCMAKE_BUILD_TYPE=Release `
           --debug-find `
           -DCMAKE_FIND_DEBUG_MODE=ON
+      shell: powershell
+
+    - name: Check CMake Cache
+      run: |
+        cd build
+        Write-Host "=== Checking CMake Cache for OSS SDK ==="
+        if (Test-Path "CMakeCache.txt") {
+          Write-Host "Searching for ENABLE_OSS_SDK in CMakeCache.txt:"
+          Select-String -Path "CMakeCache.txt" -Pattern "ENABLE_OSS_SDK|OSS_CPP_SDK" | ForEach-Object { Write-Host $_.Line }
+        }
       shell: powershell
 
     - name: Build

@@ -33,7 +33,7 @@ jobs:
       with:
         path: |
           oss-sdk-install
-        key: oss-sdk-1.10.1-win-${{ runner.os }}
+        key: oss-sdk-1.10.1-win-v2-${{ runner.os }}
 
     - name: Build Aliyun OSS C++ SDK
       if: steps.cache-oss-sdk.outputs.cache-hit != 'true'
