@@ -22,7 +22,7 @@ void ToastWidget::setupUI()
 
     // 创建布局
     QVBoxLayout *layout = new QVBoxLayout(this);
-    layout->setContentsMargins(16, 12, 16, 12);
+    layout->setContentsMargins(20, 14, 20, 14);
 
     // 创建消息标签
     m_messageLabel = new QLabel(this);
@@ -31,16 +31,16 @@ void ToastWidget::setupUI()
     m_messageLabel->setStyleSheet(
         "QLabel {"
         "    color: white;"
-        "    font-size: 14px;"
-        "    font-weight: 500;"
+        "    font-size: 15px;"
+        "    font-weight: 600;"
         "}"
     );
     layout->addWidget(m_messageLabel);
 
     // 创建阴影效果
     QGraphicsDropShadowEffect *shadow = new QGraphicsDropShadowEffect(this);
-    shadow->setBlurRadius(20);
-    shadow->setColor(QColor(0, 0, 0, 80));
+    shadow->setBlurRadius(25);
+    shadow->setColor(QColor(0, 0, 0, 100));
     shadow->setOffset(0, 4);
     setGraphicsEffect(shadow);
 
@@ -58,7 +58,7 @@ void ToastWidget::setupUI()
     });
 
     // 设置固定高度
-    setFixedHeight(50);
+    setFixedHeight(56);
 }
 
 void ToastWidget::show(const QString& message, ToastType type, int duration)
@@ -119,6 +119,13 @@ void ToastWidget::paintEvent(QPaintEvent *event)
     painter.setBrush(QColor(color));
     painter.setPen(Qt::NoPen);
     painter.drawRoundedRect(rect(), 8, 8);
+
+    // 绘制细微的边框（增强视觉效果）
+    QPen borderPen(QColor(0, 0, 0, 30));  // 半透明黑色边框
+    borderPen.setWidth(1);
+    painter.setPen(borderPen);
+    painter.setBrush(Qt::NoBrush);
+    painter.drawRoundedRect(rect().adjusted(0, 0, -1, -1), 8, 8);
 }
 
 void ToastWidget::updatePosition()
@@ -127,9 +134,9 @@ void ToastWidget::updatePosition()
         return;
     }
 
-    // 定位到父窗口底部中央，距离底部 40px
+    // 定位到父窗口底部中央，距离底部 60px
     int x = (parentWidget()->width() - width()) / 2;
-    int y = parentWidget()->height() - height() - 40;
+    int y = parentWidget()->height() - height() - 60;
     move(x, y);
 }
 
@@ -137,11 +144,11 @@ QString ToastWidget::getColorForType(ToastType type) const
 {
     switch (type) {
     case Success:
-        return "#10B981";  // 绿色
+        return "#059669";  // 深绿色（更好的对比度）
     case Error:
-        return "#EF4444";  // 红色
+        return "#DC2626";  // 深红色（更好的对比度）
     case Info:
     default:
-        return "#3B82F6";  // 蓝色
+        return "#2563EB";  // 深蓝色（更好的对比度）
     }
 }
