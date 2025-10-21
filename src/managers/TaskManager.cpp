@@ -52,9 +52,6 @@ void TaskManager::initialize()
 
     Application::instance().logger()->info("TaskManager", QString::fromUtf8("初始化任务管理器"));
 
-    // 从本地加载任务列表
-    loadTasksFromLocal();
-
     // 连接 WebSocket 信号
     connectWebSocketSignals();
 
@@ -64,9 +61,6 @@ void TaskManager::initialize()
 void TaskManager::cleanup()
 {
     Application::instance().logger()->info("TaskManager", QString::fromUtf8("清理任务管理器"));
-
-    // 保存任务到本地
-    saveTasksToLocal();
 
     // 清理任务列表
     qDeleteAll(m_tasks);

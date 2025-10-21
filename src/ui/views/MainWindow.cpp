@@ -102,8 +102,8 @@ MainWindow::MainWindow(QWidget *parent)
     // 显示任务页面
     showPage(0);
 
-    // 初始加载任务列表
-    refreshTaskList();
+    // 从服务器加载任务列表
+    TaskManager::instance().refreshTaskList();
 }
 
 MainWindow::~MainWindow()

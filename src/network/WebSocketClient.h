@@ -108,6 +108,7 @@ private:
     void setupHeartbeat();
     void stopHeartbeat();
     void handleMessage(const QJsonObject& message);
+    QString buildFullUrl() const;  // 构建带 user_id 参数的完整 URL
 
     QWebSocket* m_webSocket;
     QTimer* m_heartbeatTimer;

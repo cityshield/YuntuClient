@@ -45,8 +45,9 @@ void WebSocketClient::connectToServer(const QString& url, const QString& userId)
     m_state = Connecting;
     m_reconnectAttempts = 0;
 
-    qDebug() << "WebSocket: 连接到" << url;
-    m_webSocket->open(QUrl(url));
+    QString fullUrl = buildFullUrl();
+    qDebug() << "WebSocket: 连接到" << fullUrl;
+    m_webSocket->open(QUrl(fullUrl));
 }
 
 void WebSocketClient::disconnect()
@@ -141,7 +142,8 @@ void WebSocketClient::attemptReconnect()
     qDebug() << "WebSocket: 重连尝试" << m_reconnectAttempts << "/" << m_maxReconnectAttempts;
 
     m_state = Connecting;
-    m_webSocket->open(QUrl(m_url));
+    QString fullUrl = buildFullUrl();
+    m_webSocket->open(QUrl(fullUrl));
 }
 
 void WebSocketClient::setupHeartbeat()
@@ -192,4 +194,20 @@ void WebSocketClient::handleMessage(const QJsonObject& message)
         // 心跳响应
         qDebug() << "WebSocket: 心跳响应收到";
     }
+}
+
+QString WebSocketClient::buildFullUrl() const
+{
+    QString fullUrl = m_url;
+
+    if (!m_userId.isEmpty()) {
+        // 检查 URL 是否已经包含查询参数
+        if (m_url.contains("?")) {
+            fullUrl += QString("&user_id=%1").arg(m_userId);
+        } else {
+            fullUrl += QString("?user_id=%1").arg(m_userId);
+        }
+    }
+
+    return fullUrl;
 }
