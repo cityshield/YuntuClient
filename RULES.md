@@ -187,6 +187,43 @@ Qt6::WebSockets
 void functionName(int paramName);
 ```
 
+### 字符和图标规范
+
+**⚠️ 禁止在代码中使用 Emoji 表情符号**
+
+- **原因**: Emoji 可能导致跨平台编译错误、编码问题、源文件损坏
+- **替代方案**: 使用纯 ASCII 字符或英文缩写标识
+
+#### ❌ 错误示例：
+
+```cpp
+// 错误：使用 Emoji
+QString icon = QString::fromUtf8("✅");  // 编译可能失败
+QString status = QString::fromUtf8("📤 上传中");  // 跨平台问题
+```
+
+#### ✅ 正确示例：
+
+```cpp
+// 正确：使用 ASCII 字符或英文缩写
+QString icon = QString::fromUtf8("[OK]");  // 使用方括号标识
+QString status = QString::fromUtf8("[U] 上传中");  // [U] = Uploading
+```
+
+#### 状态图标建议映射：
+
+```cpp
+Draft      -> "[D]"   // 草稿
+Uploading  -> "[U]"   // 上传中
+Pending    -> "[P]"   // 待审核
+Queued     -> "[Q]"   // 队列中
+Rendering  -> "[R]"   // 渲染中
+Paused     -> "[||]"  // 已暂停
+Completed  -> "[OK]"  // 已完成
+Failed     -> "[X]"   // 失败
+Cancelled  -> "[-]"   // 已取消
+```
+
 ### 日志规范
 
 使用统一的日志系统：
@@ -325,7 +362,9 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 
 ## 🔄 更新记录
 
-- **2025-10-21**: 创建初始版本，添加阿里云 OSS SDK 规范
+- **2025-10-21**:
+  - 创建初始版本，添加阿里云 OSS SDK 规范
+  - 添加字符和图标规范（禁止使用 Emoji）
 - 后续更新将在此记录...
 
 ---

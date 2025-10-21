@@ -372,29 +372,29 @@ QColor TaskItemWidget::getStatusColor() const
 
 QString TaskItemWidget::getStatusIcon() const
 {
-    if (!m_task) return QString::fromUtf8("○");
+    if (!m_task) return QString::fromUtf8("[O]");
 
     switch (m_task->status()) {
         case TaskStatus::Draft:
-            return QString::fromUtf8("✏️");
+            return QString::fromUtf8("[D]");  // Draft
         case TaskStatus::Uploading:
-            return QString::fromUtf8("📤");
+            return QString::fromUtf8("[U]");  // Uploading
         case TaskStatus::Pending:
-            return QString::fromUtf8("⏳");
+            return QString::fromUtf8("[P]");  // Pending
         case TaskStatus::Queued:
-            return QString::fromUtf8("⏸️");
+            return QString::fromUtf8("[Q]");  // Queued
         case TaskStatus::Rendering:
-            return QString::fromUtf8("▶️");
+            return QString::fromUtf8("[R]");  // Rendering
         case TaskStatus::Paused:
-            return QString::fromUtf8("⏸️");
+            return QString::fromUtf8("[||]"); // Paused
         case TaskStatus::Completed:
-            return QString::fromUtf8("✅");
+            return QString::fromUtf8("[OK]"); // Completed
         case TaskStatus::Failed:
-            return QString::fromUtf8("❌");
+            return QString::fromUtf8("[X]");  // Failed
         case TaskStatus::Cancelled:
-            return QString::fromUtf8("⛔");
+            return QString::fromUtf8("[-]");  // Cancelled
         default:
-            return QString::fromUtf8("○");
+            return QString::fromUtf8("[O]");
     }
 }
 
