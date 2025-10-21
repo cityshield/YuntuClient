@@ -87,6 +87,8 @@ private slots:
     void onTaskDataChanged();
     void onStatusChanged();
     void onProgressChanged();
+    void onUploadProgressChanged(int progress, qint64 uploaded, qint64 total);
+    void onUploadSpeedChanged(qint64 bytesPerSecond);
 
 private:
     void initUI();
@@ -105,6 +107,11 @@ private:
      */
     QString getStatusIcon() const;
 
+    /**
+     * @brief 格式化字节数显示
+     */
+    static QString formatBytes(qint64 bytes);
+
 private:
     Task *m_task;
     bool m_isHovered;
@@ -116,6 +123,7 @@ private:
     QLabel *m_framesLabel;
     QProgressBar *m_progressBar;
     QLabel *m_progressLabel;
+    QLabel *m_uploadSpeedLabel;  // 上传速度标签
 
     // 操作按钮
     FluentButton *m_viewButton;

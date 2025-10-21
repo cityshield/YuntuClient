@@ -18,6 +18,7 @@ TaskItemWidget::TaskItemWidget(Task *task, QWidget *parent)
     , m_framesLabel(nullptr)
     , m_progressBar(nullptr)
     , m_progressLabel(nullptr)
+    , m_uploadSpeedLabel(nullptr)
     , m_viewButton(nullptr)
     , m_pauseButton(nullptr)
     , m_resumeButton(nullptr)
@@ -183,7 +184,7 @@ void TaskItemWidget::initUI()
     firstRow->addWidget(m_cancelButton);
     firstRow->addWidget(m_deleteButton);
 
-    // 第二行：进度条 + 进度百分比
+    // 第二行：进度条 + 进度百分比 + 上传速度
     QHBoxLayout *secondRow = new QHBoxLayout();
     secondRow->setSpacing(8);
 
@@ -193,10 +194,15 @@ void TaskItemWidget::initUI()
     m_progressBar->setRange(0, 100);
 
     m_progressLabel = new QLabel(QString::fromUtf8("0%"), this);
-    m_progressLabel->setFixedWidth(40);
+    m_progressLabel->setMinimumWidth(120);  // 增加宽度以容纳字节数显示
+
+    m_uploadSpeedLabel = new QLabel(this);
+    m_uploadSpeedLabel->setStyleSheet("color: #808080; font-size: 11px;");
+    m_uploadSpeedLabel->setVisible(false);  // 默认隐藏
 
     secondRow->addWidget(m_progressBar);
     secondRow->addWidget(m_progressLabel);
+    secondRow->addWidget(m_uploadSpeedLabel);
 
     // 第三行：时间信息
     m_timeLabel = new QLabel(this);
@@ -230,16 +236,68 @@ void TaskItemWidget::updateProgressBar()
 {
     if (!m_task) return;
 
-    int progress = m_task->progress();
-    m_progressBar->setValue(progress);
-    m_progressLabel->setText(QString("%1%").arg(progress));
+    // 如果正在上传，显示上传进度
+    if (m_task->status() == TaskStatus::Uploading && m_task->isUploading()) {
+        int uploadProgress = m_task->uploadProgress();
+        m_progressBar->setValue(uploadProgress);
+
+        // 格式化字节数显示
+        qint64 uploaded = m_task->uploadedBytes();
+        qint64 total = m_task->totalBytes();
+        QString uploadedStr = formatBytes(uploaded);
+        QString totalStr = formatBytes(total);
+
+        m_progressLabel->setText(QString::fromUtf8("%1% (%2 / %3)")
+            .arg(uploadProgress)
+            .arg(uploadedStr)
+            .arg(totalStr));
+
+        // 显示上传速度
+        qint64 speed = m_task->uploadSpeed();
+        if (speed > 0) {
+            m_uploadSpeedLabel->setText(QString::fromUtf8("速度: %1/s")
+                .arg(formatBytes(speed)));
+            m_uploadSpeedLabel->setVisible(true);
+        } else {
+            m_uploadSpeedLabel->setVisible(false);
+        }
+    } else {
+        // 渲染进度
+        int progress = m_task->progress();
+        m_progressBar->setValue(progress);
+        m_progressLabel->setText(QString("%1%").arg(progress));
+        m_uploadSpeedLabel->setVisible(false);
+    }
+}
+
+QString TaskItemWidget::formatBytes(qint64 bytes)
+{
+    if (bytes < 1024) {
+        return QString("%1 B").arg(bytes);
+    } else if (bytes < 1024 * 1024) {
+        return QString("%1 KB").arg(bytes / 1024.0, 0, 'f', 2);
+    } else if (bytes < 1024 * 1024 * 1024) {
+        return QString("%1 MB").arg(bytes / (1024.0 * 1024.0), 0, 'f', 2);
+    } else {
+        return QString("%1 GB").arg(bytes / (1024.0 * 1024.0 * 1024.0), 0, 'f', 2);
+    }
 }
 
 void TaskItemWidget::updateButtons()
 {
     if (!m_task) return;
 
-    // 根据任务状态显示/隐藏按钮
+    // 上传状态下的按钮逻辑
+    if (m_task->status() == TaskStatus::Uploading && m_task->isUploading()) {
+        // 正在上传：根据暂停状态显示暂停/恢复按钮
+        m_pauseButton->setVisible(!m_task->uploadPaused());
+        m_resumeButton->setVisible(m_task->uploadPaused());
+        m_cancelButton->setVisible(true);  // 允许取消上传
+        m_deleteButton->setVisible(false);
+        return;
+    }
+
+    // 渲染状态下的按钮逻辑（原有逻辑）
     m_pauseButton->setVisible(m_task->canPause());
     m_resumeButton->setVisible(m_task->canResume());
     m_cancelButton->setVisible(m_task->canCancel());
@@ -259,6 +317,10 @@ void TaskItemWidget::connectSignals()
     connect(m_task, &Task::taskDataChanged, this, &TaskItemWidget::onTaskDataChanged);
     connect(m_task, &Task::statusChanged, this, &TaskItemWidget::onStatusChanged);
     connect(m_task, &Task::progressChanged, this, &TaskItemWidget::onProgressChanged);
+
+    // 上传进度信号
+    connect(m_task, &Task::uploadProgressChanged, this, &TaskItemWidget::onUploadProgressChanged);
+    connect(m_task, &Task::uploadSpeedChanged, this, &TaskItemWidget::onUploadSpeedChanged);
 
     // 按钮信号
     connect(m_viewButton, &FluentButton::clicked, this, [this]() {
@@ -315,6 +377,8 @@ QString TaskItemWidget::getStatusIcon() const
     switch (m_task->status()) {
         case TaskStatus::Draft:
             return QString::fromUtf8("✏️");
+        case TaskStatus::Uploading:
+            return QString::fromUtf8("📤");
         case TaskStatus::Pending:
             return QString::fromUtf8("⏳");
         case TaskStatus::Queued:
@@ -332,4 +396,20 @@ QString TaskItemWidget::getStatusIcon() const
         default:
             return QString::fromUtf8("○");
     }
+}
+
+void TaskItemWidget::onUploadProgressChanged(int progress, qint64 uploaded, qint64 total)
+{
+    Q_UNUSED(progress);
+    Q_UNUSED(uploaded);
+    Q_UNUSED(total);
+    // 更新进度条显示
+    updateProgressBar();
+}
+
+void TaskItemWidget::onUploadSpeedChanged(qint64 bytesPerSecond)
+{
+    Q_UNUSED(bytesPerSecond);
+    // 更新速度标签
+    updateProgressBar();
 }
