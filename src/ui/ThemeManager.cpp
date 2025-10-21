@@ -103,14 +103,8 @@ void ThemeManager::applyHoverAnimation(QWidget* widget)
 
 QString ThemeManager::getStyleSheet() const
 {
-    // 加载基础样式表
-    QString qss = loadStyleSheet(m_currentTheme == ThemeType::Dark ?
-        ":/styles/fluent_dark.qss" : ":/styles/fluent_light.qss");
-
-    // 如果加载失败，使用内嵌样式
-    if (qss.isEmpty()) {
-        qss = getInlineStyleSheet();
-    }
+    // 使用内嵌样式表（未来可以扩展支持外部样式文件）
+    QString qss = getInlineStyleSheet();
 
     // 处理颜色变量替换
     return processStyleSheet(qss);
@@ -137,18 +131,20 @@ void ThemeManager::loadThemeSettings()
 
 QString ThemeManager::loadStyleSheet(const QString& fileName) const
 {
+    // 预留接口：用于从外部文件加载样式表
+    // 当前版本使用内嵌样式，不需要外部文件
     QFile file(fileName);
     if (file.open(QFile::ReadOnly | QFile::Text)) {
         QString content = QString::fromUtf8(file.readAll());
         file.close();
+        Application::instance().logger()->debug("ThemeManager",
+            QString::fromUtf8("成功加载外部样式表: %1").arg(fileName));
         return content;
     }
 
-    Application::instance().logger()->warning("ThemeManager",
-        QString::fromUtf8("无法加载样式表文件: %1，使用内嵌样式").arg(fileName));
-
-    // 返回内嵌的基础样式
-    return "";  // 将在 getStyleSheet 中使用内嵌样式
+    // 文件不存在时静默失败，不产生警告日志
+    // 调用者应该提供内嵌样式作为后备方案
+    return "";
 }
 
 QString ThemeManager::getInlineStyleSheet() const
