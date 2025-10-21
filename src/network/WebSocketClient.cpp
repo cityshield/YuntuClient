@@ -132,8 +132,7 @@ void WebSocketClient::onHeartbeatTimeout()
 {
     // 发送心跳
     QJsonObject data;
-    data["type"] = "ping";
-    sendMessage("heartbeat", data);
+    sendMessage("ping", data);
 }
 
 void WebSocketClient::attemptReconnect()

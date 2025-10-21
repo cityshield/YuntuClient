@@ -19,6 +19,7 @@ OSSUploader::OSSUploader(QObject *parent)
     , m_uploadedBytes(0)
     , m_lastUploadedBytes(0)
     , m_currentSpeed(0)
+    , m_uploadThread(nullptr)
 #ifdef ENABLE_OSS_SDK
     , m_ossClient(nullptr)
 #endif
@@ -30,6 +31,15 @@ OSSUploader::OSSUploader(QObject *parent)
 
 OSSUploader::~OSSUploader()
 {
+    // 停止并等待上传线程
+    if (m_uploadThread && m_uploadThread->isRunning()) {
+        m_isUploading = false;
+        m_uploadThread->quit();
+        m_uploadThread->wait(5000);  // 等待最多5秒
+        delete m_uploadThread;
+        m_uploadThread = nullptr;
+    }
+
 #ifdef ENABLE_OSS_SDK
     if (m_ossClient) {
         delete m_ossClient;
@@ -121,8 +131,27 @@ void OSSUploader::startUpload(const QString& filePath,
     m_isPaused = false;
     m_speedTimer->start();
 
-    // 执行上传
-    performUpload();
+    // 创建工作线程
+    m_uploadThread = new QThread();
+
+    // 在工作线程中执行上传
+    QObject::connect(m_uploadThread, &QThread::started, this, [this]() {
+        performUpload();
+    });
+
+    // 上传完成后退出线程
+    QObject::connect(this, &OSSUploader::uploadFinished, m_uploadThread, &QThread::quit);
+
+    // 线程结束后清理
+    QObject::connect(m_uploadThread, &QThread::finished, this, [this]() {
+        if (m_uploadThread) {
+            m_uploadThread->deleteLater();
+            m_uploadThread = nullptr;
+        }
+    });
+
+    // 启动线程
+    m_uploadThread->start();
 #else
     emit uploadError("OSS SDK 未启用，请使用 vcpkg 安装: vcpkg install aliyun-oss-cpp-sdk");
 #endif
@@ -155,6 +184,11 @@ void OSSUploader::cancel()
     m_isUploading = false;
     m_isPaused = false;
     m_speedTimer->stop();
+
+    // 如果有正在运行的线程，停止它
+    if (m_uploadThread && m_uploadThread->isRunning()) {
+        m_uploadThread->requestInterruption();
+    }
 
     qDebug() << "OSSUploader: 上传已取消";
     emit uploadFinished(false);

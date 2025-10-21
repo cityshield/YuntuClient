@@ -4,6 +4,7 @@
 #include <QString>
 #include <QMap>
 #include <QJsonObject>
+#include <QThread>
 #include <functional>
 
 #ifdef ENABLE_OSS_SDK
@@ -137,6 +138,7 @@ private:
     qint64 m_currentSpeed;
 
     QTimer* m_speedTimer;
+    QThread* m_uploadThread;  // 上传工作线程
 
 #ifdef ENABLE_OSS_SDK
     AlibabaCloud::OSS::OssClient* m_ossClient;

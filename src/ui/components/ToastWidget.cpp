@@ -28,12 +28,19 @@ void ToastWidget::setupUI()
     m_messageLabel = new QLabel(this);
     m_messageLabel->setAlignment(Qt::AlignCenter);
     m_messageLabel->setWordWrap(true);
-    m_messageLabel->setStyleSheet(
-        "QLabel {"
-        "    color: white;"
-        "    font-size: 14px;"
-        "}"
-    );
+
+    // 使用 QPalette 强制设置文字颜色（比样式表更可靠）
+    QPalette palette = m_messageLabel->palette();
+    palette.setColor(QPalette::WindowText, QColor(255, 255, 255));  // 白色文字
+    palette.setColor(QPalette::Text, QColor(255, 255, 255));
+    m_messageLabel->setPalette(palette);
+    m_messageLabel->setAutoFillBackground(false);  // 不自动填充背景
+
+    // 设置字体
+    QFont font = m_messageLabel->font();
+    font.setPixelSize(14);
+    m_messageLabel->setFont(font);
+
     layout->addWidget(m_messageLabel);
 
     // 不使用阴影效果，简洁样式
