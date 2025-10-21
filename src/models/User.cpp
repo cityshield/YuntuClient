@@ -101,16 +101,17 @@ void User::setIsLoggedIn(bool isLoggedIn)
 QJsonObject User::toJson() const
 {
     QJsonObject json;
-    json["userId"] = m_userId;
+    // 使用与服务端一致的字段名（用于本地存储）
+    json["id"] = m_userId;
     json["username"] = m_username;
     json["email"] = m_email;
     json["phone"] = m_phone;
     json["avatar"] = m_avatar;
     json["balance"] = m_balance;
-    json["memberLevel"] = static_cast<int>(m_memberLevel);
-    json["createdAt"] = m_createdAt.toString(Qt::ISODate);
-    json["lastLoginAt"] = m_lastLoginAt.toString(Qt::ISODate);
-    json["isLoggedIn"] = m_isLoggedIn;
+    json["member_level"] = static_cast<int>(m_memberLevel);
+    json["created_at"] = m_createdAt.toString(Qt::ISODate);
+    json["last_login_at"] = m_lastLoginAt.toString(Qt::ISODate);
+    // isLoggedIn 不需要序列化到 JSON，它是运行时状态
     return json;
 }
 
@@ -118,25 +119,30 @@ User* User::fromJson(const QJsonObject &json, QObject *parent)
 {
     User *user = new User(parent);
 
-    user->setUserId(json["userId"].toString());
+    // 修复：服务端使用 "id" 而不是 "userId"
+    user->setUserId(json["id"].toString());
     user->setUsername(json["username"].toString());
     user->setEmail(json["email"].toString());
     user->setPhone(json["phone"].toString());
     user->setAvatar(json["avatar"].toString());
     user->setBalance(json["balance"].toDouble());
-    user->setMemberLevel(static_cast<MemberLevel>(json["memberLevel"].toInt()));
 
-    QString createdAtStr = json["createdAt"].toString();
+    // 修复：服务端使用 "member_level" (下划线命名)
+    user->setMemberLevel(static_cast<MemberLevel>(json["member_level"].toInt()));
+
+    // 修复：服务端使用 "created_at" (下划线命名)
+    QString createdAtStr = json["created_at"].toString();
     if (!createdAtStr.isEmpty()) {
         user->setCreatedAt(QDateTime::fromString(createdAtStr, Qt::ISODate));
     }
 
-    QString lastLoginAtStr = json["lastLoginAt"].toString();
+    // 修复：服务端使用 "last_login_at" (下划线命名)
+    QString lastLoginAtStr = json["last_login_at"].toString();
     if (!lastLoginAtStr.isEmpty()) {
         user->setLastLoginAt(QDateTime::fromString(lastLoginAtStr, Qt::ISODate));
     }
 
-    user->setIsLoggedIn(json["isLoggedIn"].toBool());
+    // isLoggedIn 是客户端本地状态，不从服务端响应解析
 
     return user;
 }
