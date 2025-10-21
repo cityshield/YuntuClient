@@ -552,17 +552,17 @@ void CreateTaskDialog::startFileUpload(const QString& taskId)
                 checkpointDir.mkpath(".");
             }
 
-            // 使用 TaskManager 启动上传（任务已经在 TaskManager 中）
-            TaskManager::instance().startTaskUpload(m_task, sceneFile, credentials, config);
-
             Application::instance().logger()->info("CreateTaskDialog",
                 QString::fromUtf8("开始上传文件，对话框将关闭"));
 
             // 显示 Toast 提示
             ToastManager::instance().showSuccess(QString::fromUtf8("开始上传文件"));
 
-            // 关闭对话框，上传进度将在主窗口的任务列表中显示
+            // 立即关闭对话框
             accept();
+
+            // 启动上传（在对话框关闭后执行）
+            TaskManager::instance().startTaskUpload(m_task, sceneFile, credentials, config);
 #else
             // OSS SDK 不可用，提示用户
             Application::instance().logger()->warning("CreateTaskDialog",

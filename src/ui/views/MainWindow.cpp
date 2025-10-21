@@ -191,9 +191,7 @@ void MainWindow::onCreateTaskClicked()
             Application::instance().logger()->info("MainWindow",
                 QString::fromUtf8("任务创建成功: %1").arg(createdTask->taskName()));
 
-            // 提交任务到任务管理器
-            TaskManager::instance().submitTask(createdTask);
-
+            // CreateTaskDialog 已经调用了 TaskManager::startTaskUpload
             // 任务列表会通过 TaskManager::taskListUpdated 信号自动刷新
         }
     }
