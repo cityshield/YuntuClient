@@ -106,6 +106,31 @@ private slots:
      */
     void onViewTaskDetails(Task *task);
 
+    /**
+     * @brief 任务列表更新
+     */
+    void onTaskListUpdated();
+
+    /**
+     * @brief 任务暂停按钮点击
+     */
+    void onTaskPauseClicked(Task *task);
+
+    /**
+     * @brief 任务恢复按钮点击
+     */
+    void onTaskResumeClicked(Task *task);
+
+    /**
+     * @brief 任务取消按钮点击
+     */
+    void onTaskCancelClicked(Task *task);
+
+    /**
+     * @brief 任务删除按钮点击
+     */
+    void onTaskDeleteClicked(Task *task);
+
 private:
     /**
      * @brief 初始化 UI
@@ -147,6 +172,11 @@ private:
      */
     void updateUserInfo();
 
+    /**
+     * @brief 刷新任务列表显示
+     */
+    void refreshTaskList();
+
 private:
     // 窗口拖动相关
     QPoint m_dragPosition;
@@ -175,6 +205,7 @@ private:
     // 任务页面组件
     FluentButton *m_createTaskButton;
     FluentButton *m_refreshButton;
+    QVBoxLayout *m_taskListLayout;  // 任务列表布局容器
 
     // 布局
     QVBoxLayout *m_mainLayout;

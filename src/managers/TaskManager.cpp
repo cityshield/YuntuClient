@@ -6,6 +6,7 @@
 #include "TaskManager.h"
 #include "../core/Logger.h"
 #include "../core/Application.h"
+#include "../ui/components/ToastManager.h"
 #include <QSettings>
 #include <QJsonDocument>
 #include <QJsonArray>
@@ -683,12 +684,18 @@ void TaskManager::startTaskUpload(Task* task,
 
             Application::instance().logger()->info("TaskManager",
                 QString::fromUtf8("任务 %1 文件上传成功").arg(taskId));
+
+            // 显示成功提示
+            ToastManager::instance().showSuccess(QString::fromUtf8("上传成功，等待渲染"));
         } else {
             // 上传失败，恢复为草稿状态
             task->setStatus(TaskStatus::Draft);
 
             Application::instance().logger()->error("TaskManager",
                 QString::fromUtf8("任务 %1 文件上传失败").arg(taskId));
+
+            // 显示失败提示
+            ToastManager::instance().showError(QString::fromUtf8("上传失败"));
         }
 
         // 清理上传器

@@ -40,6 +40,21 @@ public:
                    ToastWidget::ToastType type = ToastWidget::Info,
                    int duration = 3000);
 
+    /**
+     * @brief 显示成功 Toast
+     */
+    void showSuccess(const QString& message, int duration = 3000);
+
+    /**
+     * @brief 显示错误 Toast
+     */
+    void showError(const QString& message, int duration = 3000);
+
+    /**
+     * @brief 显示信息 Toast
+     */
+    void showInfo(const QString& message, int duration = 3000);
+
 private:
     ToastManager();
     ~ToastManager() = default;

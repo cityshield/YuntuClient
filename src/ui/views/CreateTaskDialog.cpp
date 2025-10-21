@@ -5,10 +5,12 @@
 
 #include "CreateTaskDialog.h"
 #include "../ThemeManager.h"
+#include "../components/ToastManager.h"
 #include "../../services/MayaDetector.h"
 #include "../../core/Logger.h"
 #include "../../core/Application.h"
 #include "../../network/ApiService.h"
+#include "../../managers/TaskManager.h"
 
 #ifdef ENABLE_OSS_SDK
 #include "../../network/OSSUploader.h"
@@ -555,6 +557,9 @@ void CreateTaskDialog::startFileUpload(const QString& taskId)
 
             Application::instance().logger()->info("CreateTaskDialog",
                 QString::fromUtf8("开始上传文件，对话框将关闭"));
+
+            // 显示 Toast 提示
+            ToastManager::instance().showSuccess(QString::fromUtf8("开始上传文件"));
 
             // 关闭对话框，上传进度将在主窗口的任务列表中显示
             accept();

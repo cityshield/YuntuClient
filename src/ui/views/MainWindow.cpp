@@ -43,6 +43,7 @@ MainWindow::MainWindow(QWidget *parent)
     , m_aboutPage(nullptr)
     , m_createTaskButton(nullptr)
     , m_refreshButton(nullptr)
+    , m_taskListLayout(nullptr)
     , m_mainLayout(nullptr)
 {
     initUI();
@@ -74,11 +75,18 @@ MainWindow::MainWindow(QWidget *parent)
     TaskManager::instance().initialize();
     UserManager::instance().initialize();
 
+    // 连接 TaskManager 信号
+    connect(&TaskManager::instance(), &TaskManager::taskListUpdated,
+            this, &MainWindow::onTaskListUpdated);
+
     // 更新用户信息
     updateUserInfo();
 
     // 显示任务页面
     showPage(0);
+
+    // 初始加载任务列表
+    refreshTaskList();
 }
 
 MainWindow::~MainWindow()
@@ -186,8 +194,7 @@ void MainWindow::onCreateTaskClicked()
             // 提交任务到任务管理器
             TaskManager::instance().submitTask(createdTask);
 
-            // 刷新任务列表
-            onRefreshClicked();
+            // 任务列表会通过 TaskManager::taskListUpdated 信号自动刷新
         }
     }
 }
@@ -374,81 +381,12 @@ QWidget* MainWindow::createTaskPage()
     scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
     QWidget *scrollContent = new QWidget(scrollArea);
-    QVBoxLayout *taskListLayout = new QVBoxLayout(scrollContent);
-    taskListLayout->setContentsMargins(0, 0, 0, 0);
-    taskListLayout->setSpacing(12);
+    m_taskListLayout = new QVBoxLayout(scrollContent);
+    m_taskListLayout->setContentsMargins(0, 0, 0, 0);
+    m_taskListLayout->setSpacing(12);
 
-    // 创建演示任务 1 - 渲染中
-    Task *task1 = new Task(this);
-    task1->setTaskId("demo_task_001");
-    task1->setTaskName(QString::fromUtf8("渲染场景 - 办公室内景"));
-    task1->setSceneFile("C:/Projects/Maya/office_scene.ma");
-    task1->setStatus(TaskStatus::Rendering);
-    task1->setProgress(65);
-    task1->setStartFrame(1);
-    task1->setEndFrame(240);
-    task1->setFrameStep(1);
-    task1->setWidth(1920);
-    task1->setHeight(1080);
-    task1->setRenderer("Arnold");
-    task1->setOutputFormat("exr");
-    task1->setCreatedAt(QDateTime::currentDateTime().addSecs(-3600));
-    task1->setStartedAt(QDateTime::currentDateTime().addSecs(-1800));
-    task1->setEstimatedCost(45.50);
-
-    TaskItemWidget *taskItem1 = new TaskItemWidget(task1, scrollContent);
-    connect(taskItem1, &TaskItemWidget::viewDetailsClicked,
-            this, &MainWindow::onViewTaskDetails);
-    taskListLayout->addWidget(taskItem1);
-
-    // 创建演示任务 2 - 队列中
-    Task *task2 = new Task(this);
-    task2->setTaskId("demo_task_002");
-    task2->setTaskName(QString::fromUtf8("产品展示动画"));
-    task2->setSceneFile("C:/Projects/Maya/product_showcase.ma");
-    task2->setStatus(TaskStatus::Queued);
-    task2->setProgress(0);
-    task2->setStartFrame(1);
-    task2->setEndFrame(180);
-    task2->setFrameStep(1);
-    task2->setWidth(1920);
-    task2->setHeight(1080);
-    task2->setRenderer("V-Ray");
-    task2->setOutputFormat("png");
-    task2->setCreatedAt(QDateTime::currentDateTime().addSecs(-600));
-    task2->setEstimatedCost(32.00);
-
-    TaskItemWidget *taskItem2 = new TaskItemWidget(task2, scrollContent);
-    connect(taskItem2, &TaskItemWidget::viewDetailsClicked,
-            this, &MainWindow::onViewTaskDetails);
-    taskListLayout->addWidget(taskItem2);
-
-    // 创建演示任务 3 - 已完成
-    Task *task3 = new Task(this);
-    task3->setTaskId("demo_task_003");
-    task3->setTaskName(QString::fromUtf8("建筑外观渲染"));
-    task3->setSceneFile("C:/Projects/Maya/building_exterior.ma");
-    task3->setStatus(TaskStatus::Completed);
-    task3->setProgress(100);
-    task3->setStartFrame(1);
-    task3->setEndFrame(120);
-    task3->setFrameStep(1);
-    task3->setWidth(3840);
-    task3->setHeight(2160);
-    task3->setRenderer("Arnold");
-    task3->setOutputFormat("exr");
-    task3->setCreatedAt(QDateTime::currentDateTime().addSecs(-7200));
-    task3->setStartedAt(QDateTime::currentDateTime().addSecs(-6000));
-    task3->setCompletedAt(QDateTime::currentDateTime().addSecs(-300));
-    task3->setEstimatedCost(68.00);
-    task3->setActualCost(65.50);
-
-    TaskItemWidget *taskItem3 = new TaskItemWidget(task3, scrollContent);
-    connect(taskItem3, &TaskItemWidget::viewDetailsClicked,
-            this, &MainWindow::onViewTaskDetails);
-    taskListLayout->addWidget(taskItem3);
-
-    taskListLayout->addStretch();
+    // 任务列表将通过 refreshTaskList() 动态填充
+    m_taskListLayout->addStretch();
 
     scrollArea->setWidget(scrollContent);
 
@@ -574,4 +512,127 @@ void MainWindow::updateUserInfo()
         QString initial = user->username().left(1).toUpper();
         m_userAvatarLabel->setText(initial);
     }
+}
+
+void MainWindow::refreshTaskList()
+{
+    if (!m_taskListLayout) {
+        return;
+    }
+
+    // 清空现有任务项（保留最后的 stretch）
+    QLayoutItem *item;
+    while (m_taskListLayout->count() > 1) {  // 保留最后一个 stretch
+        item = m_taskListLayout->takeAt(0);
+        if (item->widget()) {
+            item->widget()->deleteLater();
+        }
+        delete item;
+    }
+
+    // 获取所有任务
+    const QList<Task*>& tasks = TaskManager::instance().getAllTasks();
+
+    if (tasks.isEmpty()) {
+        // 如果没有任务，显示提示信息
+        QLabel *emptyLabel = new QLabel(QString::fromUtf8("暂无任务，点击「新建任务」开始"), this);
+        emptyLabel->setAlignment(Qt::AlignCenter);
+        emptyLabel->setStyleSheet("color: #808080; font-size: 14px; padding: 40px;");
+        m_taskListLayout->insertWidget(0, emptyLabel);
+    } else {
+        // 为每个任务创建 TaskItemWidget
+        for (Task *task : tasks) {
+            TaskItemWidget *taskItem = new TaskItemWidget(task, this);
+
+            // 连接所有信号
+            connect(taskItem, &TaskItemWidget::viewDetailsClicked,
+                    this, &MainWindow::onViewTaskDetails);
+            connect(taskItem, &TaskItemWidget::pauseClicked,
+                    this, &MainWindow::onTaskPauseClicked);
+            connect(taskItem, &TaskItemWidget::resumeClicked,
+                    this, &MainWindow::onTaskResumeClicked);
+            connect(taskItem, &TaskItemWidget::cancelClicked,
+                    this, &MainWindow::onTaskCancelClicked);
+            connect(taskItem, &TaskItemWidget::deleteClicked,
+                    this, &MainWindow::onTaskDeleteClicked);
+
+            m_taskListLayout->insertWidget(m_taskListLayout->count() - 1, taskItem);
+        }
+    }
+}
+
+void MainWindow::onTaskListUpdated()
+{
+    Application::instance().logger()->info("MainWindow", QString::fromUtf8("任务列表已更新"));
+    refreshTaskList();
+}
+
+void MainWindow::onTaskPauseClicked(Task *task)
+{
+    if (!task) {
+        return;
+    }
+
+    Application::instance().logger()->info("MainWindow",
+        QString::fromUtf8("暂停任务: %1").arg(task->taskName()));
+
+    // 如果正在上传，暂停上传
+    if (task->status() == TaskStatus::Uploading && task->isUploading()) {
+        TaskManager::instance().pauseTaskUpload(task->taskId());
+        ToastManager::instance().showSuccess(QString::fromUtf8("上传已暂停"));
+    } else {
+        // 否则暂停渲染任务
+        TaskManager::instance().pauseTask(task->taskId());
+    }
+}
+
+void MainWindow::onTaskResumeClicked(Task *task)
+{
+    if (!task) {
+        return;
+    }
+
+    Application::instance().logger()->info("MainWindow",
+        QString::fromUtf8("恢复任务: %1").arg(task->taskName()));
+
+    // 如果正在上传，恢复上传
+    if (task->status() == TaskStatus::Uploading && task->isUploading()) {
+        TaskManager::instance().resumeTaskUpload(task->taskId());
+        ToastManager::instance().showSuccess(QString::fromUtf8("上传已恢复"));
+    } else {
+        // 否则恢复渲染任务
+        TaskManager::instance().resumeTask(task->taskId());
+    }
+}
+
+void MainWindow::onTaskCancelClicked(Task *task)
+{
+    if (!task) {
+        return;
+    }
+
+    Application::instance().logger()->info("MainWindow",
+        QString::fromUtf8("取消任务: %1").arg(task->taskName()));
+
+    // 如果正在上传，取消上传
+    if (task->status() == TaskStatus::Uploading && task->isUploading()) {
+        TaskManager::instance().cancelTaskUpload(task->taskId());
+        ToastManager::instance().showSuccess(QString::fromUtf8("上传已取消"));
+    } else {
+        // 否则取消渲染任务
+        TaskManager::instance().cancelTask(task->taskId());
+    }
+}
+
+void MainWindow::onTaskDeleteClicked(Task *task)
+{
+    if (!task) {
+        return;
+    }
+
+    Application::instance().logger()->info("MainWindow",
+        QString::fromUtf8("删除任务: %1").arg(task->taskName()));
+
+    TaskManager::instance().deleteTask(task->taskId());
+    ToastManager::instance().showSuccess(QString::fromUtf8("任务已删除"));
 }

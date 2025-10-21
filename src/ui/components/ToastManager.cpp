@@ -46,3 +46,18 @@ void ToastManager::showToast(const QString& message, ToastWidget::ToastType type
     m_toastWidget->show(message, type, duration);
     qDebug() << "ToastManager: 显示 Toast -" << message;
 }
+
+void ToastManager::showSuccess(const QString& message, int duration)
+{
+    showToast(message, ToastWidget::Success, duration);
+}
+
+void ToastManager::showError(const QString& message, int duration)
+{
+    showToast(message, ToastWidget::Error, duration);
+}
+
+void ToastManager::showInfo(const QString& message, int duration)
+{
+    showToast(message, ToastWidget::Info, duration);
+}
