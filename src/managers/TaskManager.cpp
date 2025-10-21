@@ -543,6 +543,7 @@ void TaskManager::addTask(Task* task)
     }
 
     emit taskAdded(task);
+    emit taskListUpdated();
 }
 
 void TaskManager::removeTask(const QString& taskId)
@@ -627,12 +628,12 @@ void TaskManager::startTaskUpload(Task* task,
 
     QString taskId = task->taskId();
 
-    // 如果任务不在列表中，添加到列表（确保主窗口能显示）
+    // 如果任务不在列表中，添加到列表
+    // 注意：CreateTaskDialog 已经提前添加了任务，这里只是安全检查
     if (!m_tasks.contains(task)) {
-        addTask(task);
+        addTask(task);  // addTask 会发出 taskListUpdated 信号
         Application::instance().logger()->debug("TaskManager",
             QString::fromUtf8("任务 %1 已添加到任务列表").arg(taskId));
-        emit taskListUpdated();  // 通知 UI 更新
     }
 
     // 如果已经在上传，先停止
@@ -649,13 +650,12 @@ void TaskManager::startTaskUpload(Task* task,
     OSSUploader* uploader = new OSSUploader(this);
     m_uploaders[taskId] = uploader;
 
-    // 更新任务状态
+    // 更新任务状态（如果 CreateTaskDialog 已经设置，这里可能是重复设置）
+    // 但为了安全起见，仍然设置一次
     task->setStatus(TaskStatus::Uploading);
     task->setIsUploading(true);
     task->setUploadPaused(false);
-    task->setUploadProgress(0);
-
-    emit taskListUpdated();  // 通知 UI 显示上传状态
+    // 不重置进度，保留 CreateTaskDialog 设置的值
 
     // 连接上传器信号到任务对象
     connect(uploader, &OSSUploader::progressChanged,

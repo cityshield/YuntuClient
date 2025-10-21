@@ -433,8 +433,8 @@ bool CreateTaskDialog::validateInput()
 
 void CreateTaskDialog::createTask()
 {
-    // 创建任务对象
-    m_task = new Task(this);
+    // 创建任务对象（parent 设为 nullptr，由 TaskManager 管理生命周期）
+    m_task = new Task(nullptr);
 
     // 设置基本信息
     m_task->setTaskName(m_taskNameEdit->text().trimmed());
@@ -554,6 +554,12 @@ void CreateTaskDialog::startFileUpload(const QString& taskId)
 
             Application::instance().logger()->info("CreateTaskDialog",
                 QString::fromUtf8("开始上传文件，对话框将关闭"));
+
+            // 提前将任务添加到 TaskManager 并设置为上传状态
+            m_task->setStatus(TaskStatus::Uploading);
+            m_task->setIsUploading(true);
+            m_task->setUploadProgress(0);
+            TaskManager::instance().addTask(m_task);
 
             // 显示 Toast 提示
             ToastManager::instance().showSuccess(QString::fromUtf8("开始上传文件"));

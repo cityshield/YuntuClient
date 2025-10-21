@@ -185,6 +185,12 @@ public:
      */
     void loadTasksFromLocal();
 
+    /**
+     * @brief 添加任务到列表（公开接口）
+     * @param task 任务对象
+     */
+    void addTask(Task* task);
+
 signals:
     /**
      * @brief 任务列表更新信号
@@ -265,11 +271,6 @@ signals:
 private:
     explicit TaskManager(QObject *parent = nullptr);
     ~TaskManager();
-
-    /**
-     * @brief 添加任务到列表
-     */
-    void addTask(Task* task);
 
     /**
      * @brief 从列表中移除任务
