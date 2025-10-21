@@ -62,6 +62,9 @@ void OSSUploader::startUpload(const QString& filePath,
     m_credentials = credentials;
     m_config = config;
 
+    // 确保 checkpoint 目录路径使用原生分隔符
+    m_config.checkpointDir = QDir::toNativeSeparators(config.checkpointDir);
+
     // 检查文件是否存在
     QFileInfo fileInfo(filePath);
     if (!fileInfo.exists()) {
@@ -80,14 +83,24 @@ void OSSUploader::startUpload(const QString& filePath,
     qDebug() << "OSS Object Key:" << credentials.objectKey;
 
     // 创建 checkpoint 目录（使用绝对路径）
-    qDebug() << "Checkpoint 目录:" << config.checkpointDir;
-    QDir checkpointDir(config.checkpointDir);
+    QString checkpointDirPath = QDir::toNativeSeparators(config.checkpointDir);
+    qDebug() << "Checkpoint 目录:" << checkpointDirPath;
+
+    QDir checkpointDir(checkpointDirPath);
     if (!checkpointDir.exists()) {
-        bool created = checkpointDir.mkpath(".");
+        // 创建目录（包括父目录）
+        bool created = checkpointDir.mkpath(checkpointDirPath);
         if (created) {
             qDebug() << "OSSUploader: 成功创建 checkpoint 目录";
+            // 验证目录是否真的存在
+            if (!QDir(checkpointDirPath).exists()) {
+                QString error = QString("Checkpoint 目录创建后不存在: %1").arg(checkpointDirPath);
+                qWarning() << "OSSUploader:" << error;
+                emit uploadError(error);
+                return;
+            }
         } else {
-            QString error = QString("无法创建 checkpoint 目录: %1").arg(config.checkpointDir);
+            QString error = QString("无法创建 checkpoint 目录: %1").arg(checkpointDirPath);
             qWarning() << "OSSUploader:" << error;
             emit uploadError(error);
             return;
@@ -181,10 +194,9 @@ void OSSUploader::performUpload()
     qDebug() << "并发数:" << m_config.threadNum;
     qDebug() << "Checkpoint 目录:" << m_config.checkpointDir;
 
-    // 构建 checkpoint 文件路径
-    QString checkpointPath = QString("%1/%2.checkpoint")
-        .arg(m_config.checkpointDir)
-        .arg(m_taskId);
+    // 构建 checkpoint 文件路径（使用原生路径分隔符）
+    QString checkpointPath = QDir(m_config.checkpointDir).filePath(m_taskId + ".checkpoint");
+    qDebug() << "Checkpoint 文件路径:" << checkpointPath;
 
     try {
         // 创建上传请求
