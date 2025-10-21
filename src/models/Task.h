@@ -81,6 +81,15 @@ public:
     QString errorMessage() const { return m_errorMessage; }
     QStringList renderLogs() const { return m_renderLogs; }
 
+    // 上传相关 Getters
+    int uploadProgress() const { return m_uploadProgress; }
+    qint64 uploadedBytes() const { return m_uploadedBytes; }
+    qint64 totalBytes() const { return m_totalBytes; }
+    qint64 uploadSpeed() const { return m_uploadSpeed; }
+    bool isUploading() const { return m_isUploading; }
+    bool uploadPaused() const { return m_uploadPaused; }
+    QString uploadError() const { return m_uploadError; }
+
     // Setters
     void setTaskId(const QString &taskId);
     void setTaskName(const QString &taskName);
@@ -106,6 +115,15 @@ public:
     void addRenderLog(const QString &log);
     void clearRenderLogs();
 
+    // 上传相关 Setters
+    void setUploadProgress(int progress);
+    void setUploadedBytes(qint64 bytes);
+    void setTotalBytes(qint64 bytes);
+    void setUploadSpeed(qint64 bytesPerSecond);
+    void setIsUploading(bool uploading);
+    void setUploadPaused(bool paused);
+    void setUploadError(const QString &error);
+
     // 序列化/反序列化
     QJsonObject toJson() const;
     static Task* fromJson(const QJsonObject &json, QObject *parent = nullptr);
@@ -130,6 +148,12 @@ signals:
     void priorityChanged();
     void taskDataChanged();
     void renderLogAdded(const QString &log);
+
+    // 上传相关信号
+    void uploadProgressChanged(int progress, qint64 uploaded, qint64 total);
+    void uploadSpeedChanged(qint64 bytesPerSecond);
+    void uploadStatusChanged(bool isUploading, bool isPaused);
+    void uploadErrorOccurred(const QString &error);
 
 private:
     QString m_taskId;
@@ -162,6 +186,15 @@ private:
     // 错误和日志
     QString m_errorMessage;
     QStringList m_renderLogs;
+
+    // 上传相关
+    int m_uploadProgress = 0;           // 上传进度 0-100
+    qint64 m_uploadedBytes = 0;         // 已上传字节数
+    qint64 m_totalBytes = 0;            // 总字节数
+    qint64 m_uploadSpeed = 0;           // 上传速度 (bytes/s)
+    bool m_isUploading = false;         // 是否正在上传
+    bool m_uploadPaused = false;        // 上传是否暂停
+    QString m_uploadError;              // 上传错误信息
 };
 
 #endif // TASK_H

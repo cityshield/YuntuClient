@@ -211,6 +211,85 @@ void Task::clearRenderLogs()
     m_renderLogs.clear();
 }
 
+// 上传相关 Setters 实现
+void Task::setUploadProgress(int progress)
+{
+    if (m_uploadProgress != progress) {
+        m_uploadProgress = progress;
+        emit uploadProgressChanged(progress, m_uploadedBytes, m_totalBytes);
+        emit taskDataChanged();
+    }
+}
+
+void Task::setUploadedBytes(qint64 bytes)
+{
+    if (m_uploadedBytes != bytes) {
+        m_uploadedBytes = bytes;
+        // 自动计算进度
+        if (m_totalBytes > 0) {
+            int progress = static_cast<int>((bytes * 100) / m_totalBytes);
+            if (m_uploadProgress != progress) {
+                m_uploadProgress = progress;
+            }
+        }
+        emit uploadProgressChanged(m_uploadProgress, bytes, m_totalBytes);
+        emit taskDataChanged();
+    }
+}
+
+void Task::setTotalBytes(qint64 bytes)
+{
+    if (m_totalBytes != bytes) {
+        m_totalBytes = bytes;
+        // 重新计算进度
+        if (bytes > 0 && m_uploadedBytes > 0) {
+            int progress = static_cast<int>((m_uploadedBytes * 100) / bytes);
+            if (m_uploadProgress != progress) {
+                m_uploadProgress = progress;
+            }
+        }
+        emit uploadProgressChanged(m_uploadProgress, m_uploadedBytes, bytes);
+        emit taskDataChanged();
+    }
+}
+
+void Task::setUploadSpeed(qint64 bytesPerSecond)
+{
+    if (m_uploadSpeed != bytesPerSecond) {
+        m_uploadSpeed = bytesPerSecond;
+        emit uploadSpeedChanged(bytesPerSecond);
+    }
+}
+
+void Task::setIsUploading(bool uploading)
+{
+    if (m_isUploading != uploading) {
+        m_isUploading = uploading;
+        emit uploadStatusChanged(uploading, m_uploadPaused);
+        emit taskDataChanged();
+    }
+}
+
+void Task::setUploadPaused(bool paused)
+{
+    if (m_uploadPaused != paused) {
+        m_uploadPaused = paused;
+        emit uploadStatusChanged(m_isUploading, paused);
+        emit taskDataChanged();
+    }
+}
+
+void Task::setUploadError(const QString &error)
+{
+    if (m_uploadError != error) {
+        m_uploadError = error;
+        if (!error.isEmpty()) {
+            emit uploadErrorOccurred(error);
+        }
+        emit taskDataChanged();
+    }
+}
+
 QJsonObject Task::toJson() const
 {
     QJsonObject json;
