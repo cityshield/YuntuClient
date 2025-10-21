@@ -191,6 +191,13 @@ public:
      */
     void addTask(Task* task);
 
+    /**
+     * @brief 连接到 WebSocket 服务器
+     * @param url WebSocket 服务器 URL
+     * @param userId 用户 ID
+     */
+    void connectWebSocket(const QString& url, const QString& userId);
+
 signals:
     /**
      * @brief 任务列表更新信号
@@ -302,9 +309,15 @@ private:
      */
     void sortTasks();
 
+    /**
+     * @brief 轮询活跃任务进度（降级方案）
+     */
+    void pollActiveTasksProgress();
+
 private:
     WebSocketClient* m_wsClient;
     FileUploader* m_fileUploader;
+    QTimer* m_progressPollTimer;  // 进度轮询定时器
 
     QList<Task*> m_tasks;
     QMap<QString, Task*> m_taskMap;  // taskId -> Task* 快速查找

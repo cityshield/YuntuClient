@@ -18,10 +18,19 @@ TaskManager::TaskManager(QObject *parent)
     : QObject(parent)
     , m_wsClient(nullptr)
     , m_fileUploader(nullptr)
+    , m_progressPollTimer(nullptr)
     , m_isInitialized(false)
 {
     // 创建文件上传器
     m_fileUploader = new FileUploader(this);
+
+    // 创建 WebSocket 客户端
+    m_wsClient = new WebSocketClient(this);
+
+    // 创建进度轮询定时器（作为降级方案）
+    m_progressPollTimer = new QTimer(this);
+    m_progressPollTimer->setInterval(5000);  // 每 5 秒轮询一次
+    connect(m_progressPollTimer, &QTimer::timeout, this, &TaskManager::pollActiveTasksProgress);
 }
 
 TaskManager::~TaskManager()
@@ -46,9 +55,8 @@ void TaskManager::initialize()
     // 从本地加载任务列表
     loadTasksFromLocal();
 
-    // 连接 WebSocket 信号（如果已连接）
-    // WebSocket 客户端由外部管理，这里只是连接信号
-    // 实际使用时需要在适当的时候设置 WebSocket 客户端
+    // 连接 WebSocket 信号
+    connectWebSocketSignals();
 
     m_isInitialized = true;
 }
@@ -581,10 +589,44 @@ void TaskManager::connectWebSocketSignals()
         return;
     }
 
+    Application::instance().logger()->info("TaskManager", QString::fromUtf8("连接 WebSocket 信号"));
+
+    // 连接任务进度更新信号
     connect(m_wsClient, &WebSocketClient::taskProgressUpdated,
             this, &TaskManager::handleTaskProgressUpdate);
 
-    // 可以添加更多 WebSocket 信号连接
+    // 连接任务状态变化信号
+    connect(m_wsClient, &WebSocketClient::taskStatusChanged,
+            this, [this](const QString& taskId, const QString& status) {
+        // 将字符串状态转换为枚举
+        TaskStatus taskStatus = TaskStatus::Pending;  // 默认值
+        if (status == "pending") taskStatus = TaskStatus::Pending;
+        else if (status == "queued") taskStatus = TaskStatus::Queued;
+        else if (status == "rendering") taskStatus = TaskStatus::Rendering;
+        else if (status == "paused") taskStatus = TaskStatus::Paused;
+        else if (status == "completed") taskStatus = TaskStatus::Completed;
+        else if (status == "failed") taskStatus = TaskStatus::Failed;
+        else if (status == "cancelled") taskStatus = TaskStatus::Cancelled;
+
+        handleTaskStatusUpdate(taskId, static_cast<int>(taskStatus));
+    });
+
+    // 连接 WebSocket 连接状态信号
+    connect(m_wsClient, &WebSocketClient::connected, this, [this]() {
+        Application::instance().logger()->info("TaskManager", QString::fromUtf8("WebSocket 已连接，停止进度轮询"));
+        // WebSocket 连接成功，停止轮询
+        if (m_progressPollTimer) {
+            m_progressPollTimer->stop();
+        }
+    });
+
+    connect(m_wsClient, &WebSocketClient::disconnected, this, [this]() {
+        Application::instance().logger()->warning("TaskManager", QString::fromUtf8("WebSocket 已断开，启动进度轮询降级"));
+        // WebSocket 断开，启动轮询作为降级方案
+        if (m_progressPollTimer) {
+            m_progressPollTimer->start();
+        }
+    });
 }
 
 void TaskManager::handleTaskStatusUpdate(const QString& taskId, int status)
@@ -600,8 +642,53 @@ void TaskManager::handleTaskProgressUpdate(const QString& taskId, int progress)
 {
     Task* task = getTaskById(taskId);
     if (task) {
+        Application::instance().logger()->debug("TaskManager",
+            QString::fromUtf8("任务进度更新: %1 -> %2%").arg(taskId).arg(progress));
         task->setProgress(progress);
         emit taskProgressUpdated(taskId, progress);
+    }
+}
+
+void TaskManager::connectWebSocket(const QString& url, const QString& userId)
+{
+    if (!m_wsClient) {
+        Application::instance().logger()->error("TaskManager",
+            QString::fromUtf8("WebSocket 客户端未初始化"));
+        return;
+    }
+
+    Application::instance().logger()->info("TaskManager",
+        QString::fromUtf8("连接到 WebSocket: %1, 用户: %2").arg(url).arg(userId));
+
+    m_wsClient->connectToServer(url, userId);
+}
+
+void TaskManager::pollActiveTasksProgress()
+{
+    // 仅在 WebSocket 未连接时才轮询
+    if (m_wsClient && m_wsClient->isConnected()) {
+        return;
+    }
+
+    Application::instance().logger()->debug("TaskManager",
+        QString::fromUtf8("轮询活跃任务进度"));
+
+    // 获取所有活跃状态的任务（正在渲染或排队中）
+    QList<Task*> activeTasks;
+    for (Task* task : m_tasks) {
+        if (task->status() == TaskStatus::Rendering ||
+            task->status() == TaskStatus::Queued) {
+            activeTasks.append(task);
+        }
+    }
+
+    if (activeTasks.isEmpty()) {
+        return;
+    }
+
+    // 对每个活跃任务请求最新状态
+    for (Task* task : activeTasks) {
+        fetchTaskDetails(task->taskId());
     }
 }
 

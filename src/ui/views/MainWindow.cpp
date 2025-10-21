@@ -83,6 +83,21 @@ MainWindow::MainWindow(QWidget *parent)
     // 更新用户信息
     updateUserInfo();
 
+    // 建立 WebSocket 连接
+    User* currentUser = AuthManager::instance().currentUser();
+    if (currentUser) {
+        QString wsUrl = Application::instance().config()->wsBaseUrl();
+        QString userId = currentUser->userId();
+
+        Application::instance().logger()->info("MainWindow",
+            QString::fromUtf8("建立 WebSocket 连接: %1").arg(wsUrl));
+
+        TaskManager::instance().connectWebSocket(wsUrl, userId);
+    } else {
+        Application::instance().logger()->warning("MainWindow",
+            QString::fromUtf8("未登录，无法建立 WebSocket 连接"));
+    }
+
     // 显示任务页面
     showPage(0);
 
