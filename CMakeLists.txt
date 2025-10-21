@@ -121,6 +121,7 @@ set(SOURCES
     src/core/Application.cpp
     src/core/Config.cpp
     src/core/Logger.cpp
+    src/core/CrashHandler.cpp
 
     # Network
     src/network/HttpClient.cpp
@@ -163,6 +164,7 @@ set(SOURCES
     src/ui/views/TaskDetailDialog.cpp
     src/ui/views/CreateTaskDialog.cpp
     src/ui/views/MayaDetectionDialog.cpp
+    src/ui/views/LogViewerDialog.cpp
 )
 
 # 头文件
@@ -171,6 +173,7 @@ set(HEADERS
     src/core/Application.h
     src/core/Config.h
     src/core/Logger.h
+    src/core/CrashHandler.h
 
     # Network
     src/network/HttpClient.h
@@ -213,6 +216,7 @@ set(HEADERS
     src/ui/views/TaskDetailDialog.h
     src/ui/views/CreateTaskDialog.h
     src/ui/views/MayaDetectionDialog.h
+    src/ui/views/LogViewerDialog.h
 )
 
 # 资源文件（暂时没有）

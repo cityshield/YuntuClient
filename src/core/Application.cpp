@@ -1,6 +1,7 @@
 #include "Application.h"
 #include "Config.h"
 #include "Logger.h"
+#include "CrashHandler.h"
 #include "../network/HttpClient.h"
 #include "../services/LogUploader.h"
 #include <QDir>
@@ -35,6 +36,9 @@ void Application::initialize()
 
     // 记录系统信息
     m_logger->logSystemInfo();
+
+    // 安装崩溃处理器
+    CrashHandler::instance().install();
 
     // 加载配置
     m_config->load();
@@ -90,4 +94,7 @@ void Application::cleanup()
 {
     m_logger->info("Application", "应用程序关闭");
     m_config->save();
+
+    // 卸载崩溃处理器
+    CrashHandler::instance().uninstall();
 }

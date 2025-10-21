@@ -6,6 +6,7 @@
 #include "MainWindow.h"
 #include "CreateTaskDialog.h"
 #include "TaskDetailDialog.h"
+#include "LogViewerDialog.h"
 #include "../ThemeManager.h"
 #include "../components/TaskItemWidget.h"
 #include "../components/ToastManager.h"
@@ -210,6 +211,14 @@ void MainWindow::onLogoutClicked()
     // TODO: 打开登录窗口
 }
 
+void MainWindow::onViewLogsClicked()
+{
+    Application::instance().logger()->info("MainWindow", QString::fromUtf8("打开日志查看器"));
+
+    LogViewerDialog dialog(this);
+    dialog.exec();
+}
+
 void MainWindow::onViewTaskDetails(Task *task)
 {
     if (!task) {
@@ -408,12 +417,32 @@ QWidget* MainWindow::createSettingsPage()
     titleFont.setBold(true);
     titleLabel->setFont(titleFont);
 
-    QLabel *contentLabel = new QLabel(QString::fromUtf8("设置功能开发中..."), page);
+    // 日志管理分组
+    QLabel *logsSectionLabel = new QLabel(QString::fromUtf8("日志管理"), page);
+    QFont sectionFont = logsSectionLabel->font();
+    sectionFont.setPointSize(14);
+    sectionFont.setBold(true);
+    logsSectionLabel->setFont(sectionFont);
+
+    FluentButton *viewLogsButton = new FluentButton(QString::fromUtf8("📄 查看日志"), page);
+    viewLogsButton->setMinimumWidth(150);
+    connect(viewLogsButton, &FluentButton::clicked, this, &MainWindow::onViewLogsClicked);
+
+    QLabel *logsDescLabel = new QLabel(QString::fromUtf8("查看应用程序日志文件，用于故障排查和问题诊断"), page);
+    logsDescLabel->setStyleSheet("color: #808080; font-size: 12px;");
+
+    // 其他设置
+    QLabel *contentLabel = new QLabel(QString::fromUtf8("更多设置功能开发中..."), page);
 
     FluentButton *logoutButton = new FluentButton(QString::fromUtf8("登出"), page);
     connect(logoutButton, &FluentButton::clicked, this, &MainWindow::onLogoutClicked);
 
     layout->addWidget(titleLabel);
+    layout->addSpacing(20);
+    layout->addWidget(logsSectionLabel);
+    layout->addWidget(viewLogsButton);
+    layout->addWidget(logsDescLabel);
+    layout->addSpacing(20);
     layout->addWidget(contentLabel);
     layout->addStretch();
     layout->addWidget(logoutButton);

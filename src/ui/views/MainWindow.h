@@ -102,6 +102,11 @@ private slots:
     void onLogoutClicked();
 
     /**
+     * @brief 查看日志按钮点击
+     */
+    void onViewLogsClicked();
+
+    /**
      * @brief 查看任务详情
      */
     void onViewTaskDetails(Task *task);
