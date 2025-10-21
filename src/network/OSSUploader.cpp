@@ -194,17 +194,13 @@ void OSSUploader::performUpload()
     qDebug() << "并发数:" << m_config.threadNum;
     qDebug() << "Checkpoint 目录:" << m_config.checkpointDir;
 
-    // 构建 checkpoint 文件路径（使用原生路径分隔符）
-    QString checkpointPath = QDir(m_config.checkpointDir).filePath(m_taskId + ".checkpoint");
-    qDebug() << "Checkpoint 文件路径:" << checkpointPath;
-
     try {
-        // 创建上传请求
+        // 创建上传请求（传递 checkpoint 目录路径，SDK 会自动管理 checkpoint 文件）
         UploadObjectRequest request(
             m_credentials.bucketName.toStdString(),
             m_credentials.objectKey.toStdString(),
             m_filePath.toStdString(),
-            checkpointPath.toStdString(),
+            m_config.checkpointDir.toStdString(),
             m_config.partSize,
             m_config.threadNum
         );
@@ -228,8 +224,7 @@ void OSSUploader::performUpload()
             m_isUploading = false;
             m_speedTimer->stop();
 
-            // 删除 checkpoint 文件
-            QFile::remove(checkpointPath);
+            // SDK 会自动删除 checkpoint 文件
 
             emit uploadFinished(true);
         } else {
