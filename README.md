@@ -144,6 +144,8 @@ mkdir platforms
 copy C:\Qt\6.5.3\msvc2019_64\plugins\platforms\qwindows.dll platforms\
 ```
 
+**注意**：如果您的本地编译启用了 OSS SDK（`ENABLE_OSS_SDK=ON`），还需要复制 OSS 相关 DLL。详见 [docs/OSS_SDK_DLL_Guide.md](docs/OSS_SDK_DLL_Guide.md)。
+
 ## 设计风格
 
 采用 **Microsoft Fluent Design** 设计语言：
@@ -341,13 +343,30 @@ app_name=YuntuClient
 
 ## 常见问题
 
-### 1. 找不到 Qt 库
+### 1. 运行时提示缺少 DLL（libcurl.dll、libeay32.dll 等）
+
+**问题描述**: 启动程序时提示"由于找不到 libcurl.dll，无法继续执行代码"或其他 DLL 缺失错误。
+
+**原因**: OSS SDK 的第三方依赖库未正确部署。
+
+**解决方案**:
+1. **推荐**: 从 GitHub Actions 下载自动构建的版本（所有 DLL 已包含）
+2. **本地编译**: 参考 [docs/OSS_SDK_DLL_Guide.md](docs/OSS_SDK_DLL_Guide.md) 手动复制所需 DLL
+
+所需 DLL 列表：
+- `libcurl.dll` - HTTP 客户端库
+- `libeay32.dll` - OpenSSL 加密库
+- `ssleay32.dll` - OpenSSL SSL/TLS 库
+- `zlibwapi.dll` - Zlib 压缩库
+- `alibabacloud-oss-cpp-sdk.dll` - OSS SDK 主库
+
+### 2. 找不到 Qt 库
 确保已正确设置 `Qt6_DIR` 环境变量，或在 CMake 命令中指定：
 ```bash
 cmake -DQt6_DIR=C:/Qt/6.5.3/msvc2019_64/lib/cmake/Qt6 ..
 ```
 
-### 2. 编译错误：无法打开包含文件
+### 3. 编译错误：无法打开包含文件
 检查 Qt 模块是否完整安装，确保包含以下模块：
 - Qt6::Core
 - Qt6::Gui
@@ -356,7 +375,7 @@ cmake -DQt6_DIR=C:/Qt/6.5.3/msvc2019_64/lib/cmake/Qt6 ..
 - Qt6::Sql
 - Qt6::WebSockets
 
-### 3. Maya 检测不到
+### 4. Maya 检测不到
 - 确保 Maya 已正确安装
 - 检查 Maya 安装路径是否在常用位置
 - 查看日志文件获取详细错误信息

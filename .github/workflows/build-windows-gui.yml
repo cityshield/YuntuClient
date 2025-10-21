@@ -36,7 +36,8 @@ jobs:
       with:
         path: |
           oss-sdk-install
-        key: oss-sdk-1.10.1-win-v2-${{ runner.os }}
+          oss-sdk-third-party
+        key: oss-sdk-1.10.1-win-v3-${{ runner.os }}
 
     - name: Build Aliyun OSS C++ SDK
       if: steps.cache-oss-sdk.outputs.cache-hit != 'true'
@@ -59,6 +60,20 @@ jobs:
 
         # Build and install
         cmake --build . --config Release --target install
+
+        # Copy third-party DLLs to a separate cache directory
+        Write-Host "Copying third-party DLLs for caching..."
+        $thirdPartySource = "$env:GITHUB_WORKSPACE\aliyun-oss-cpp-sdk\third_party\lib\x64"
+        $thirdPartyCache = "$env:GITHUB_WORKSPACE\oss-sdk-third-party"
+
+        if (Test-Path $thirdPartySource) {
+          New-Item -ItemType Directory -Path $thirdPartyCache -Force
+          Copy-Item "$thirdPartySource\*.dll" $thirdPartyCache -Force
+          Write-Host "Third-party DLLs cached successfully"
+          Get-ChildItem $thirdPartyCache -Filter "*.dll" | ForEach-Object { Write-Host "  - $($_.Name)" }
+        } else {
+          Write-Host "WARNING: Third-party lib directory not found at $thirdPartySource"
+        }
 
         Write-Host "OSS SDK built and installed successfully"
       shell: powershell
@@ -178,17 +193,15 @@ jobs:
           Write-Host "OSS SDK DLLs copied"
         }
 
-        # Copy OSS SDK third-party dependencies (OpenSSL, libcurl, zlib)
-        $ossSourcePath = "$env:GITHUB_WORKSPACE\aliyun-oss-cpp-sdk\third_party\lib\x64"
-        if (Test-Path $ossSourcePath) {
-          Write-Host "Copying OSS SDK third-party DLLs from source..."
-          Copy-Item "$ossSourcePath\libeay32.dll" . -ErrorAction SilentlyContinue
-          Copy-Item "$ossSourcePath\ssleay32.dll" . -ErrorAction SilentlyContinue
-          Copy-Item "$ossSourcePath\libcurl.dll" . -ErrorAction SilentlyContinue
-          Copy-Item "$ossSourcePath\zlibwapi.dll" . -ErrorAction SilentlyContinue
-          Write-Host "Third-party DLLs copied"
+        # Copy OSS SDK third-party dependencies from cache (OpenSSL, libcurl, zlib)
+        $thirdPartyCache = "$env:GITHUB_WORKSPACE\oss-sdk-third-party"
+        if (Test-Path $thirdPartyCache) {
+          Write-Host "Copying third-party DLLs from cache..."
+          Copy-Item "$thirdPartyCache\*.dll" . -Force
+          Write-Host "Third-party DLLs copied:"
+          Get-ChildItem . -Filter "*.dll" | Where-Object { $_.Name -match "curl|ssl|eay|zlib" } | ForEach-Object { Write-Host "  - $($_.Name)" }
         } else {
-          Write-Host "WARNING: OSS SDK third-party lib directory not found"
+          Write-Host "WARNING: Third-party cache directory not found at $thirdPartyCache"
         }
       shell: powershell
 
