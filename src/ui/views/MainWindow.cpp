@@ -16,6 +16,7 @@
 #include "../../models/Task.h"
 #include "../../core/Logger.h"
 #include "../../core/Application.h"
+#include "../../core/Config.h"
 #include "../../network/HttpClient.h"
 #include <QPainter>
 #include <QPainterPath>
