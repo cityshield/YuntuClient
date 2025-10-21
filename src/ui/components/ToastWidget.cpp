@@ -22,7 +22,7 @@ void ToastWidget::setupUI()
 
     // 创建布局
     QVBoxLayout *layout = new QVBoxLayout(this);
-    layout->setContentsMargins(20, 14, 20, 14);
+    layout->setContentsMargins(16, 12, 16, 12);
 
     // 创建消息标签
     m_messageLabel = new QLabel(this);
@@ -31,18 +31,12 @@ void ToastWidget::setupUI()
     m_messageLabel->setStyleSheet(
         "QLabel {"
         "    color: white;"
-        "    font-size: 15px;"
-        "    font-weight: 600;"
+        "    font-size: 14px;"
         "}"
     );
     layout->addWidget(m_messageLabel);
 
-    // 创建阴影效果
-    QGraphicsDropShadowEffect *shadow = new QGraphicsDropShadowEffect(this);
-    shadow->setBlurRadius(25);
-    shadow->setColor(QColor(0, 0, 0, 100));
-    shadow->setOffset(0, 4);
-    setGraphicsEffect(shadow);
+    // 不使用阴影效果，简洁样式
 
     // 创建隐藏定时器
     m_hideTimer = new QTimer(this);
@@ -58,7 +52,7 @@ void ToastWidget::setupUI()
     });
 
     // 设置固定高度
-    setFixedHeight(56);
+    setFixedHeight(48);
 }
 
 void ToastWidget::show(const QString& message, ToastType type, int duration)
@@ -112,20 +106,10 @@ void ToastWidget::paintEvent(QPaintEvent *event)
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
 
-    // 获取颜色
-    QString color = getColorForType(m_currentType);
-
-    // 绘制圆角矩形背景
-    painter.setBrush(QColor(color));
+    // 黑底白字，无圆角无边框
+    painter.setBrush(QColor(0, 0, 0, 220));  // 半透明黑色背景
     painter.setPen(Qt::NoPen);
-    painter.drawRoundedRect(rect(), 8, 8);
-
-    // 绘制细微的边框（增强视觉效果）
-    QPen borderPen(QColor(0, 0, 0, 30));  // 半透明黑色边框
-    borderPen.setWidth(1);
-    painter.setPen(borderPen);
-    painter.setBrush(Qt::NoBrush);
-    painter.drawRoundedRect(rect().adjusted(0, 0, -1, -1), 8, 8);
+    painter.drawRect(rect());
 }
 
 void ToastWidget::updatePosition()
@@ -134,21 +118,15 @@ void ToastWidget::updatePosition()
         return;
     }
 
-    // 定位到父窗口底部中央，距离底部 60px
+    // 定位到父窗口底部中央，距离底部 40px
     int x = (parentWidget()->width() - width()) / 2;
-    int y = parentWidget()->height() - height() - 60;
+    int y = parentWidget()->height() - height() - 40;
     move(x, y);
 }
 
 QString ToastWidget::getColorForType(ToastType type) const
 {
-    switch (type) {
-    case Success:
-        return "#059669";  // 深绿色（更好的对比度）
-    case Error:
-        return "#DC2626";  // 深红色（更好的对比度）
-    case Info:
-    default:
-        return "#2563EB";  // 深蓝色（更好的对比度）
-    }
+    // 统一使用黑色背景，不区分类型
+    Q_UNUSED(type);
+    return "#000000";
 }
