@@ -15,6 +15,10 @@
 #include "../network/WebSocketClient.h"
 #include "../network/FileUploader.h"
 
+#ifdef ENABLE_OSS_SDK
+#include "../network/OSSUploader.h"
+#endif
+
 /**
  * @brief 任务管理器
  *
@@ -138,6 +142,38 @@ public:
      * @brief 清空所有任务（本地）
      */
     void clearAllTasks();
+
+#ifdef ENABLE_OSS_SDK
+    /**
+     * @brief 开始上传任务文件（使用 OSS SDK）
+     * @param task 任务对象
+     * @param filePath 本地文件路径
+     * @param credentials STS 凭证
+     * @param config 上传配置
+     */
+    void startTaskUpload(Task* task,
+                        const QString& filePath,
+                        const OSSUploader::STSCredentials& credentials,
+                        const OSSUploader::UploadConfig& config);
+
+    /**
+     * @brief 暂停任务上传
+     * @param taskId 任务ID
+     */
+    void pauseTaskUpload(const QString& taskId);
+
+    /**
+     * @brief 恢复任务上传
+     * @param taskId 任务ID
+     */
+    void resumeTaskUpload(const QString& taskId);
+
+    /**
+     * @brief 取消任务上传
+     * @param taskId 任务ID
+     */
+    void cancelTaskUpload(const QString& taskId);
+#endif
 
     /**
      * @brief 保存任务列表到本地
@@ -272,6 +308,10 @@ private:
     QList<Task*> m_tasks;
     QMap<QString, Task*> m_taskMap;  // taskId -> Task* 快速查找
     QMap<QString, Task*> m_uploadingTasks;  // 正在上传的任务（本地临时ID -> Task*）
+
+#ifdef ENABLE_OSS_SDK
+    QMap<QString, OSSUploader*> m_uploaders;  // taskId -> OSSUploader*
+#endif
 
     bool m_isInitialized;
 };

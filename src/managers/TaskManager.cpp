@@ -610,3 +610,159 @@ void TaskManager::sortTasks()
         return a->createdAt() > b->createdAt();
     });
 }
+
+#ifdef ENABLE_OSS_SDK
+// 上传管理方法实现
+void TaskManager::startTaskUpload(Task* task,
+                                  const QString& filePath,
+                                  const OSSUploader::STSCredentials& credentials,
+                                  const OSSUploader::UploadConfig& config)
+{
+    if (!task) {
+        Application::instance().logger()->error("TaskManager",
+            QString::fromUtf8("开始上传失败: task 为空"));
+        return;
+    }
+
+    QString taskId = task->taskId();
+
+    // 如果已经在上传，先停止
+    if (m_uploaders.contains(taskId)) {
+        Application::instance().logger()->warning("TaskManager",
+            QString::fromUtf8("任务 %1 正在上传，先取消旧的上传").arg(taskId));
+        cancelTaskUpload(taskId);
+    }
+
+    Application::instance().logger()->info("TaskManager",
+        QString::fromUtf8("开始上传任务文件: %1, 文件: %2").arg(taskId).arg(filePath));
+
+    // 创建上传器
+    OSSUploader* uploader = new OSSUploader(this);
+    m_uploaders[taskId] = uploader;
+
+    // 更新任务状态
+    task->setStatus(TaskStatus::Uploading);
+    task->setIsUploading(true);
+    task->setUploadPaused(false);
+    task->setUploadProgress(0);
+
+    // 连接上传器信号到任务对象
+    connect(uploader, &OSSUploader::progressChanged,
+            task, [task](int progress, qint64 uploaded, qint64 total) {
+        task->setUploadProgress(progress);
+        task->setUploadedBytes(uploaded);
+        task->setTotalBytes(total);
+    });
+
+    connect(uploader, &OSSUploader::speedChanged,
+            task, [task](qint64 bytesPerSecond) {
+        task->setUploadSpeed(bytesPerSecond);
+    });
+
+    connect(uploader, &OSSUploader::uploadFinished,
+            this, [this, task, taskId](bool success) {
+        Application::instance().logger()->info("TaskManager",
+            QString::fromUtf8("任务 %1 上传完成，成功: %2").arg(taskId).arg(success));
+
+        task->setIsUploading(false);
+
+        if (success) {
+            // 上传成功，更新状态为待审核
+            task->setStatus(TaskStatus::Pending);
+            task->setUploadProgress(100);
+
+            Application::instance().logger()->info("TaskManager",
+                QString::fromUtf8("任务 %1 文件上传成功").arg(taskId));
+        } else {
+            // 上传失败，恢复为草稿状态
+            task->setStatus(TaskStatus::Draft);
+
+            Application::instance().logger()->error("TaskManager",
+                QString::fromUtf8("任务 %1 文件上传失败").arg(taskId));
+        }
+
+        // 清理上传器
+        OSSUploader* uploader = m_uploaders.take(taskId);
+        if (uploader) {
+            uploader->deleteLater();
+        }
+
+        emit taskListUpdated();
+    });
+
+    connect(uploader, &OSSUploader::uploadError,
+            task, [task](const QString& error) {
+        task->setUploadError(error);
+        Application::instance().logger()->error("TaskManager",
+            QString::fromUtf8("上传错误: %1").arg(error));
+    });
+
+    // 开始上传
+    uploader->startUpload(filePath, taskId, credentials, config);
+}
+
+void TaskManager::pauseTaskUpload(const QString& taskId)
+{
+    OSSUploader* uploader = m_uploaders.value(taskId, nullptr);
+    if (!uploader) {
+        Application::instance().logger()->warning("TaskManager",
+            QString::fromUtf8("暂停上传失败: 未找到任务 %1 的上传器").arg(taskId));
+        return;
+    }
+
+    uploader->pause();
+
+    Task* task = getTaskById(taskId);
+    if (task) {
+        task->setUploadPaused(true);
+    }
+
+    Application::instance().logger()->info("TaskManager",
+        QString::fromUtf8("已暂停任务 %1 的上传").arg(taskId));
+}
+
+void TaskManager::resumeTaskUpload(const QString& taskId)
+{
+    OSSUploader* uploader = m_uploaders.value(taskId, nullptr);
+    if (!uploader) {
+        Application::instance().logger()->warning("TaskManager",
+            QString::fromUtf8("恢复上传失败: 未找到任务 %1 的上传器").arg(taskId));
+        return;
+    }
+
+    uploader->resume();
+
+    Task* task = getTaskById(taskId);
+    if (task) {
+        task->setUploadPaused(false);
+    }
+
+    Application::instance().logger()->info("TaskManager",
+        QString::fromUtf8("已恢复任务 %1 的上传").arg(taskId));
+}
+
+void TaskManager::cancelTaskUpload(const QString& taskId)
+{
+    OSSUploader* uploader = m_uploaders.take(taskId);
+    if (!uploader) {
+        Application::instance().logger()->warning("TaskManager",
+            QString::fromUtf8("取消上传失败: 未找到任务 %1 的上传器").arg(taskId));
+        return;
+    }
+
+    uploader->cancel();
+    uploader->deleteLater();
+
+    Task* task = getTaskById(taskId);
+    if (task) {
+        task->setIsUploading(false);
+        task->setUploadPaused(false);
+        task->setStatus(TaskStatus::Draft);  // 恢复为草稿状态
+    }
+
+    Application::instance().logger()->info("TaskManager",
+        QString::fromUtf8("已取消任务 %1 的上传").arg(taskId));
+
+    emit taskListUpdated();
+}
+#endif
