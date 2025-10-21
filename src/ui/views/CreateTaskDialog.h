@@ -16,7 +16,7 @@
 #include "../components/FluentLineEdit.h"
 #include "../../models/Task.h"
 #include "../../models/RenderConfig.h"
-#include "../../network/OSSUploader.h"
+#include "../../managers/TaskManager.h"
 
 /**
  * @brief 新建任务对话框
@@ -67,21 +67,6 @@ private slots:
      */
     void onCancelClicked();
 
-    /**
-     * @brief 文件上传进度更新
-     */
-    void onUploadProgress(int progress, qint64 uploadedBytes, qint64 totalBytes);
-
-    /**
-     * @brief 文件上传完成
-     */
-    void onUploadFinished(bool success);
-
-    /**
-     * @brief 文件上传错误
-     */
-    void onUploadError(const QString& error);
-
 private:
     /**
      * @brief 初始化 UI
@@ -111,7 +96,6 @@ private:
 private:
     Task *m_task;
     QWidget *m_dialogPanel;
-    OSSUploader* m_ossUploader;
 
     // 标题栏
     QLabel *m_titleLabel;

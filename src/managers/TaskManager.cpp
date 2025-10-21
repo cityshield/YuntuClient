@@ -626,6 +626,14 @@ void TaskManager::startTaskUpload(Task* task,
 
     QString taskId = task->taskId();
 
+    // 如果任务不在列表中，添加到列表（确保主窗口能显示）
+    if (!m_tasks.contains(task)) {
+        addTask(task);
+        Application::instance().logger()->debug("TaskManager",
+            QString::fromUtf8("任务 %1 已添加到任务列表").arg(taskId));
+        emit taskListUpdated();  // 通知 UI 更新
+    }
+
     // 如果已经在上传，先停止
     if (m_uploaders.contains(taskId)) {
         Application::instance().logger()->warning("TaskManager",
@@ -645,6 +653,8 @@ void TaskManager::startTaskUpload(Task* task,
     task->setIsUploading(true);
     task->setUploadPaused(false);
     task->setUploadProgress(0);
+
+    emit taskListUpdated();  // 通知 UI 显示上传状态
 
     // 连接上传器信号到任务对象
     connect(uploader, &OSSUploader::progressChanged,
